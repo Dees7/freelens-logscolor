@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    // target — ES2022: esbuild в текущей vite про ES2024 ещё не знает и ругается
+    // на каждый файл.
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "useDefineForClassFields": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["node"],
+    "paths": {
+      // @freelensapp/extensions 2.x на npm не опубликован (последняя там 1.10.3),
+      // поэтому типы берутся из соседнего чекаута Freelens — так же делает его
+      // собственная фикстура расширения. Нет чекаута — `npm run type:check`
+      // не пройдёт, сборка и тесты пройдут: vite до типов не доходит.
+      "@freelensapp/extensions": ["../freelens/packages/extensions/dist/extension-api.d.ts"]
+    }
+  },
+  "include": ["src/**/*"]
+}

@@ -1,0 +1,43 @@
+{
+  "name": "freelens-logscolor",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "Раскраска логов в штатном просмотрщике Freelens 2.x: JSON, logfmt, klog, уровни, стектрейсы",
+  "publisher": "@freelens-logscolor/freelens-logscolor",
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dees7/freelens-logscolor.git"
+  },
+  "renderer": "dist/renderer.js",
+  "files": [
+    "dist/renderer.js",
+    "README.md"
+  ],
+  "engines": {
+    "freelens": "^2.0.0"
+  },
+  "keywords": [
+    "freelens",
+    "extension",
+    "kubernetes",
+    "logs",
+    "colors",
+    "ansi"
+  ],
+  "scripts": {
+    "build": "npm run clean && vite build",
+    "clean": "rm -rf ./dist",
+    "start": "vite build --watch",
+    "test": "vitest run",
+    "type:check": "tsc -p tsconfig.json",
+    "check": "npm run type:check && npm test && npm run build",
+    "pack": "npm run check && npm pack"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7",
+    "vitest": "^2.1.8"
+  }
+}
