@@ -11,7 +11,8 @@
   "renderer": "dist/renderer.js",
   "files": [
     "dist/renderer.js",
-    "README.md"
+    "README.md",
+    "logscolor.png"
   ],
   "engines": {
     "node": ">=16",
