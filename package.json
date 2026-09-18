@@ -31,7 +31,8 @@
     "start": "vite build --watch",
     "test": "vitest run",
     "type:check": "tsc -p tsconfig.json",
-    "check": "npm run type:check && npm test && npm run build",
+    "smoke": "npm run build && node scripts/smoke.mjs",
+    "check": "npm run type:check && npm test && npm run smoke",
     "pack": "npm run check && npm pack"
   },
   "devDependencies": {
