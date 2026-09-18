@@ -1,28 +1,33 @@
-// Сборка расширения под Freelens 2.x.
+// Сборка расширения под Freelens 1.x (и Lens 6.x).
 //
-// Приложение кладёт свой API на `globalThis.FreelensExtensionApi`, и импорт
-// `@freelensapp/extensions` подменяется крошечным виртуальным модулем, который
-// читает его оттуда. Бандлить сам пакет нельзя: внутри он тянет половину
-// приложения.
+// Два отличия от ветки `v2`, оба про то, как хост грузит расширение.
 //
-// React, mobx и прочие синглтоны хоста здесь не нужны: у расширения нет ни
-// одного компонента. Именно поэтому оно работает на ванильном Freelens 2.x —
-// из того, что хост публикует на глобале, ему хватает `Renderer`.
+// Формат — CommonJS: extension-loader зовёт обычный `require()` на файл из
+// поля `renderer` манифеста, ESM он проглотить не умеет. По той же причине в
+// `package.json` нет `"type": "module"` — иначе Node посчитал бы `dist/*.js`
+// модулем и уронил бы require.
 //
-// Именованные экспорты ниже перечислены руками намеренно: импорт, которого тут
-// нет, роняет сборку с «is not exported by», а не утаскивает вторую копию
-// пакета в бандл.
+// Глобал другой: рендерер v1 собран с `libraryTarget: "global"`, поэтому его
+// экспорты лежат прямо на глобальном объекте — `LensExtensions` (а рядом
+// `React`, `Mobx`, `MobxReact`, которые нам не нужны: компонентов у расширения
+// нет). В v2 на месте этого `globalThis.FreelensExtensionApi`.
+//
+// Lens 6.x кладёт туда же и то же самое, поэтому `@k8slens/extensions`
+// подменяется тем же модулем — одна сборка работает в обоих приложениях.
 
 import { defineConfig } from "vite";
 
-const HOST_GLOBAL = "globalThis.FreelensExtensionApi";
+const HOST_GLOBAL = "globalThis.LensExtensions";
 
-const hostProvidedModules = {
-  "@freelensapp/extensions": `const api = ${HOST_GLOBAL};
+const hostApi = `const api = ${HOST_GLOBAL};
 export const Common = api.Common;
 export const Main = api.Main;
 export const Renderer = api.Renderer;
-`,
+`;
+
+const hostProvidedModules = {
+  "@freelensapp/extensions": hostApi,
+  "@k8slens/extensions": hostApi,
 };
 
 const virtualPrefix = "\0freelens-host:";
@@ -42,24 +47,33 @@ const hostProvidedModulesPlugin = {
 };
 
 // Расширение читает свой файл настроек прямо из рендерера (у него включён
-// nodeIntegration), поэтому модули Node должны остаться импортами, а не
+// nodeIntegration), поэтому модули Node должны остаться require'ами, а не
 // попытками их забандлить.
 const nodeBuiltins = ["fs", "os", "path", "node:fs", "node:os", "node:path"];
 
 export default defineConfig({
   plugins: [hostProvidedModulesPlugin],
   build: {
-    target: "esnext",
+    // 1.10.3 живёт на electron 41, но ветка обслуживает всю линейку 1.x и Lens
+    // 6.x, где Chromium заметно старше; es2020 переживут они все
+    target: "es2020",
     minify: false,
     sourcemap: true,
     emptyOutDir: true,
     lib: {
       entry: "src/renderer.ts",
-      formats: ["es"],
+      formats: ["cjs"],
       fileName: () => "renderer.js",
     },
     rollupOptions: {
       external: nodeBuiltins,
+      output: {
+        // Загрузчик расширений берёт класс как `require(...).default`, а
+        // rollup на единственном default-экспорте по умолчанию пишет
+        // `module.exports = Класс` — и хост получил бы undefined. С `named`
+        // экспорт остаётся на своём месте, в `exports.default`.
+        exports: "named",
+      },
     },
   },
 });

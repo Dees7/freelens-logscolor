@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
     // target — ES2022: esbuild в текущей vite про ES2024 ещё не знает и ругается
-    // на каждый файл.
+    // на каждый файл. Это про проверку типов; что попадёт в бандл, решает
+    // build.target в vite.config.mjs.
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
@@ -16,11 +17,17 @@
     "noEmit": true,
     "types": ["node"],
     "paths": {
-      // @freelensapp/extensions 2.x на npm не опубликован (последняя там 1.10.3),
-      // поэтому типы берутся из соседнего чекаута Freelens — так же делает его
-      // собственная фикстура расширения. Нет чекаута — `npm run type:check`
-      // не пройдёт, сборка и тесты пройдут: vite до типов не доходит.
-      "@freelensapp/extensions": ["../freelens/packages/extensions/dist/extension-api.d.ts"]
+      // @freelensapp/extensions 1.10.3 на npm есть, но его d.ts — семь строк
+      // реэкспорта из @freelensapp/core, а тот в `exports` поле `types` не
+      // объявляет: без подсказки TS молча выдаёт `any` на весь API, и
+      // единственное, что от этого ломается, — наша же типизация getLogs.
+      // Декларации в пакете при этом лежат, просто по нестандартному пути.
+      "@freelensapp/core/renderer": [
+        "./node_modules/@freelensapp/core/static/build/library/src/renderer/library.d.ts"
+      ],
+      "@freelensapp/core/main": [
+        "./node_modules/@freelensapp/core/static/build/library/src/main/library.d.ts"
+      ]
     }
   },
   "include": ["src/**/*"]
