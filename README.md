@@ -27,8 +27,8 @@ running, and follow these steps:
 
    | Host | URL |
    |---|---|
-   | Freelens 2.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.1/freelens-logscolor-2.0.1.tgz` |
-   | Freelens 1.x, Lens 6.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.1/freelens-logscolor-1.0.1.tgz` |
+   | Freelens 2.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.2/freelens-logscolor-2.0.2.tgz` |
+   | Freelens 1.x, Lens 6.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.2/freelens-logscolor-1.0.2.tgz` |
 
 3. Click on the **Install** button
 4. Make sure the extension is enabled
@@ -43,10 +43,12 @@ same way: drop the file onto the Extensions view, or give it the file path.
                       ╰ key colored by name    ╰ red          ╰ its own color  ╰ yellow
 ```
 
-JSON, logfmt and klog lines are taken apart by key and by value type; `level` / `lvl` /
-`severity` is colored by its level; panics and stack traces are marked as a whole. Each key's
-color comes from the key name itself, so `pod` is always one color and `trace_id` another. Only
-escape codes are added — the text of the line is never changed.
+JSON, logfmt and klog lines are taken apart by key and by value type; the level is colored by
+its level, under whatever name the logger gives that field (`level`, `lvl`, `severity`,
+`levelname`, `log.level`, `severity_text`, `@level` …) and as a number too, on the scale of pino,
+python or OpenTelemetry; panics and stack traces are marked as a whole. Each key's color comes
+from the key name itself, so `pod` is always one color and `trace_id` another. Only escape codes
+are added — the text of the line is never changed.
 
 The full table of what gets colored, and the one setting there is, are in the README of your
 branch.
