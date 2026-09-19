@@ -27,7 +27,7 @@ running, and follow these steps:
 2. Paste the release asset URL for Freelens 1.x and Lens 6.x:
 
    ```
-   https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.1/freelens-logscolor-1.0.1.tgz
+   https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.2/freelens-logscolor-1.0.2.tgz
    ```
 
 3. Click on the **Install** button
@@ -43,12 +43,32 @@ Open the logs of any pod — the lines are colored as they arrive:
 | Format | How |
 |---|---|
 | JSON | each key gets its own color (see below), string values keep the theme color, numbers are yellow, `true`/`false`/`null` are magenta, braces and commas are grey |
-| `level` / `lvl` / `severity` | colored by level: ERROR red, WARN yellow, INFO green, DEBUG magenta, FATAL bright red |
+| the level field (`level`, `lvl`, `severity`, `levelname`, `log.level`, `severity_text`, `@level` and more — see below) | colored by level: ERROR red, WARN yellow, INFO green, DEBUG magenta, FATAL bright red |
 | logfmt (`key=value`) | the same, by key and by value type |
 | klog (`I0918 13:00:33.350123 1 controller.go:42]`) | the level letter is colored, the rest of the header is grey |
 | `panic:`, `fatal error:`, `Traceback` | the whole line is red |
 | stack traces (`at …`, `Caused by:`, `… 12 more`, `goroutine N [running]:`, `File "x", line N`) | grey |
 | anything else | the level word if it is recognized, everything else untouched |
+
+### The level field: names and numbers
+
+Every logger names that field differently. These names are recognized, case-insensitively:
+`level`, `lvl`, `severity`, `logLevel`, `log_level`, `levelname` (python `logging`, structlog),
+`log.level` (ECS/Elastic), `severity_text` and `severityText` (OpenTelemetry), `@level` (Vault,
+Nomad, Terraform).
+
+A number instead of a word counts as a level too, on the scale of the logger that writes it:
+
+| Key | Scale |
+|---|---|
+| `level`, `lvl`, `logLevel`, `log_level`, `log.level`, `@level` | pino and bunyan: 10 trace, 20 debug, 30 info, 40 warn, 50 error, 60 fatal |
+| `levelno` | python `logging`: 10 debug, 20 info, 30 warning, 40 error, 50 critical |
+| `severityNumber`, `severity_number` | OpenTelemetry: four numbers per level, 1-24 |
+
+The scale is picked by the key name, not by the number: the same `20` is debug for pino and info
+for python, so the value alone cannot tell them apart. A numeric `severity` is deliberately left
+out: in syslog it is inverted (0 is emerg, 7 is debug), so either scale would color it backwards
+— it stays an ordinary number.
 
 A key's color is derived from the key name itself, so `pod` is always one color and `trace_id`
 another, and you can find the field you need without reading the line. The same name gets the

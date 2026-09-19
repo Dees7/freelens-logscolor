@@ -15,12 +15,32 @@ Logs у пода. Ничего больше расширение не делае
 | Формат | Как |
 |---|---|
 | JSON | ключ — цветом по своему имени (см. ниже), строковые значения цветом темы, числа жёлтым, `true`/`false`/`null` сиреневым, скобки и запятые тускло |
-| `level` / `lvl` / `severity` | значение по уровню: ERROR красным, WARN жёлтым, INFO зелёным, DEBUG сиреневым, FATAL ярко-красным |
+| уровень (`level`, `lvl`, `severity`, `levelname`, `log.level`, `severity_text`, `@level` и другие имена, см. ниже) | значение по уровню: ERROR красным, WARN жёлтым, INFO зелёным, DEBUG сиреневым, FATAL ярко-красным |
 | logfmt (`key=value`) | так же, по ключам и типам значений |
 | klog (`I0918 13:00:33.350123 1 controller.go:42]`) | буква уровня цветом, остальная шапка тускло |
 | `panic:`, `fatal error:`, `Traceback` | строка целиком красным |
 | стектрейсы (`at …`, `Caused by:`, `… 12 more`, `goroutine N [running]:`, `File "x", line N`) | тускло |
 | всё остальное | уровень словом, если он узнаётся; остальное без изменений |
+
+### Уровень: имена полей и цифры
+
+Уровень пишут по-разному, и поле с ним у каждого логгера своё. Узнаются такие имена (регистр
+не важен): `level`, `lvl`, `severity`, `logLevel`, `log_level`, `levelname` (python `logging`,
+structlog), `log.level` (ECS/Elastic), `severity_text` и `severityText` (OpenTelemetry),
+`@level` (Vault, Nomad, Terraform).
+
+Цифра вместо слова тоже считается уровнем — по шкале того логгера, который так пишет:
+
+| Ключ | Шкала |
+|---|---|
+| `level`, `lvl`, `logLevel`, `log_level`, `log.level`, `@level` | pino и bunyan: 10 trace, 20 debug, 30 info, 40 warn, 50 error, 60 fatal |
+| `levelno` | python `logging`: 10 debug, 20 info, 30 warning, 40 error, 50 critical |
+| `severityNumber`, `severity_number` | OpenTelemetry: по четыре номера на уровень, 1-24 |
+
+Шкала выбирается по имени ключа, а не по числу: одно и то же `20` у pino — debug, а у питона —
+info, по значению не угадать. Числового `severity` в таблице нет намеренно: в syslog он
+перевёрнутый (0 — emerg, 7 — debug), и любая из этих шкал покрасила бы его наоборот, поэтому он
+остаётся обычным числом.
 
 ### Цвет ключа по его имени
 
@@ -61,7 +81,7 @@ AnsiUp 6 его понимает. Это единственное место, г
 2. Вставить ссылку на артефакт релиза под Freelens 1.x и Lens 6.x:
 
    ```
-   https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.1/freelens-logscolor-1.0.1.tgz
+   https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.2/freelens-logscolor-1.0.2.tgz
    ```
 
 3. Нажать **Install**
@@ -126,7 +146,7 @@ ln -s "$PWD" ~/.freelens/extensions/freelens-logscolor
 
 ```sh
 npm run check    # типы + тесты + сборка + smoke
-npm test         # только тесты (17 проверок, все — на инвариант «текст не изменился»)
+npm test         # только тесты (21 проверка, все — на инвариант «текст не изменился»)
 npm run smoke    # собранный бандл грузится так же, как его грузит хост, и красит ответ
 npm start        # пересборка на каждое изменение
 ```

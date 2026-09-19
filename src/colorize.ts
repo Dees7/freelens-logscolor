@@ -139,8 +139,85 @@ const OWN_TIMESTAMP = /^(\d{4}-\d{2}-\d{2}[T ][\d:.,]+(?:Z|[+-]\d{2}:?\d{2})?)/;
 const LEVEL_AT_START = /^(\s*[[<(]?)(trace|debug|info|warn|warning|error|fatal|panic)([\]>)]?\b)/i;
 const LEVEL_ANYWHERE = /\b(TRACE|DEBUG|INFO|WARN|WARNING|ERROR|FATAL|PANIC)\b/;
 
-/** Ключи, значение которых красится как уровень, а не как обычная строка. */
-const LEVEL_KEYS = ["level", "lvl", "severity", "loglevel", "log_level"];
+/**
+ * Ключи, значение которых красится как уровень, а не как обычная строка.
+ *
+ * Имя сравнивается целиком и в нижнем регистре, так что `logLevel` сюда попадает
+ * через `loglevel`, а вот `levelname` и `log.level` — это отдельные имена, и без
+ * них питоновский `logging` и ECS остаются некрашеными.
+ */
+const LEVEL_KEYS = [
+  "level",
+  "lvl",
+  "severity",
+  "loglevel",
+  "log_level",
+  "levelname", // python logging, structlog
+  "log.level", // ECS / Elastic
+  "severity_text", // OpenTelemetry
+  "severitytext", // он же в camelCase
+  "@level", // hashicorp: vault, nomad, terraform
+];
+
+/**
+ * Шкалы числового уровня: `[граница, уровень]`, значение меньше границы — этот
+ * уровень; что не попало ни в одну границу — `fatal`.
+ *
+ * Числовые уровни пишут ровно столько же, сколько словесные (`pino` и `bunyan`
+ * иначе не умеют), а без шкалы они уходили в ветку обычных чисел и красились
+ * жёлтым — тем же цветом, что и `warn`. То есть `"level":50` выглядел
+ * предупреждением, хотя это ошибка; молчаливо неверный цвет хуже, чем никакой.
+ */
+type Level = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
+
+/** pino и bunyan: 10 trace, 20 debug, 30 info, 40 warn, 50 error, 60 fatal. */
+const PINO_SCALE: [number, Level][] = [
+  [20, "trace"],
+  [30, "debug"],
+  [40, "info"],
+  [50, "warn"],
+  [60, "error"],
+];
+
+/** python logging: 10 debug, 20 info, 30 warning, 40 error, 50 critical. */
+const PYTHON_SCALE: [number, Level][] = [
+  [10, "trace"],
+  [20, "debug"],
+  [30, "info"],
+  [40, "warn"],
+  [50, "error"],
+];
+
+/** OpenTelemetry severityNumber: по четыре номера на уровень, 1-24. */
+const OTEL_SCALE: [number, Level][] = [
+  [5, "trace"],
+  [9, "debug"],
+  [13, "info"],
+  [17, "warn"],
+  [21, "error"],
+];
+
+/**
+ * Какой ключ по какой шкале считается.
+ *
+ * Шкала выбирается по имени ключа, а не по числу: одно и то же `20` у pino —
+ * debug, а у питона — info, и угадать по значению нельзя. Ключа нет в таблице —
+ * значит число и есть число.
+ *
+ * `severity` здесь нет намеренно: в syslog он числовой и перевёрнутый (0 —
+ * emerg, 7 — debug), так что любая из этих шкал покрасила бы его наоборот.
+ */
+const NUMERIC_LEVEL_KEYS: Record<string, [number, Level][]> = {
+  "level": PINO_SCALE,
+  "lvl": PINO_SCALE,
+  "loglevel": PINO_SCALE,
+  "log_level": PINO_SCALE,
+  "log.level": PINO_SCALE,
+  "@level": PINO_SCALE,
+  "levelno": PYTHON_SCALE,
+  "severitynumber": OTEL_SCALE,
+  "severity_number": OTEL_SCALE,
+};
 
 /** Начало аварии: дальше почти наверняка идёт стектрейс. */
 const CRASH_LINE = /^(panic:|fatal error:|Exception in thread|Traceback \(most recent call last\):)/;
@@ -204,6 +281,37 @@ export function levelColor(word: string): Color {
       // не уровень — значит обычное значение поля level, и красить его нечем
       return C.string;
   }
+}
+
+/** Уровень по числу — или `undefined`, если у этого ключа шкалы нет. */
+export function numericLevel(key: string, value: string): Level | undefined {
+  const scale = NUMERIC_LEVEL_KEYS[key.toLowerCase()];
+
+  if (!scale || !/^\d+$/.test(value)) return undefined;
+
+  const number = Number(value);
+
+  for (const [edge, level] of scale) {
+    if (number < edge) return level;
+  }
+
+  return "fatal";
+}
+
+/**
+ * Цвет значения, если ключ — про уровень. `undefined` — «не про уровень»,
+ * тогда значение красится как обычно, по своему типу.
+ *
+ * Одна точка входа на оба формата: в json сюда приходит содержимое кавычек или
+ * число, в logfmt — значение пары. Иначе числовой уровень пришлось бы чинить
+ * дважды и по-разному.
+ */
+function levelValueColor(key: string, value: string): Color | undefined {
+  const level = numericLevel(key, value);
+
+  if (level) return levelColor(level);
+
+  return LEVEL_KEYS.includes(key.toLowerCase()) ? levelColor(value) : undefined;
 }
 
 /**
@@ -301,7 +409,7 @@ export function colorJson(text: string): string {
         lastKey = raw.slice(1, -1);
         out += paint(keyColor(lastKey), raw);
       } else {
-        out += paint(LEVEL_KEYS.includes(lastKey.toLowerCase()) ? levelColor(raw.slice(1, -1)) : C.string, raw);
+        out += paint(levelValueColor(lastKey, raw.slice(1, -1)) ?? C.string, raw);
       }
 
       index = end;
@@ -319,7 +427,7 @@ export function colorJson(text: string): string {
     const number = /^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(text.slice(index));
 
     if (number) {
-      out += paint(C.number, number[0]);
+      out += paint(levelValueColor(lastKey, number[0]) ?? C.number, number[0]);
       index += number[0].length;
       continue;
     }
@@ -393,7 +501,9 @@ export function colorLogfmt(text: string): string {
 }
 
 function valueColor(key: string, value: string): Color {
-  if (LEVEL_KEYS.includes(key.toLowerCase())) return levelColor(value.replace(/"/g, ""));
+  const level = levelValueColor(key, value.replace(/"/g, ""));
+
+  if (level !== undefined) return level;
   if (/^-?\d+(?:\.\d+)?$/.test(value)) return C.number;
   if (value === "true" || value === "false" || value === "null") return C.literal;
 
