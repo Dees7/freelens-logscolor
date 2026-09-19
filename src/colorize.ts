@@ -49,6 +49,8 @@ const C = {
   punct: FAINT, // скобки, запятые, двоеточия
   faint: FAINT,
   time: FAINT,
+  addr: "0;36", // адрес: ip, url, host:port в url
+  id: "0;35", // uuid — длинный идентификатор, который ищут глазами целиком
   trace: FAINT,
   debug: "0;35",
   info: "0;32",
@@ -95,6 +97,20 @@ function paint(color: Color, text: string): string {
 }
 
 /**
+ * Значение поля: либо свой цвет целиком, либо — если цвета нет — подсветка
+ * токенов внутри.
+ *
+ * Строковые значения намеренно остаются цветом темы (см. `C.string`), и ровно в
+ * них, прежде всего в `msg`, живут адреса, uuid и ключи команд. Красить такое
+ * значение целиком по-прежнему нельзя — оно и так самое длинное в строке, — а
+ * выделить внутри него адрес можно: цвет ложится на кусок, а не поверх уже
+ * покрашенного.
+ */
+function paintValue(color: Color, text: string): string {
+  return color === "" ? highlightTokens(text) : paint(color, text);
+}
+
+/**
  * Цвет ключа по его имени — FNV-1a, чтобы близкие имена (`pod` и `pods`)
  * расходились по разным цветам, а не липли в один.
  *
@@ -129,7 +145,7 @@ const OWN_TIMESTAMP = /^(\d{4}-\d{2}-\d{2}[T ][\d:.,]+(?:Z|[+-]\d{2}:?\d{2})?)/;
 
 /** Уровень словом: в начале строки — в любом регистре, дальше — только капсом. */
 const LEVEL_AT_START = /^(\s*[[<(]?)(trace|debug|info|warn|warning|error|fatal|panic)([\]>)]?\b)/i;
-const LEVEL_ANYWHERE = /\b(TRACE|DEBUG|INFO|WARN|WARNING|ERROR|FATAL|PANIC)\b/;
+const LEVEL_WORDS = "TRACE|DEBUG|INFO|WARN|WARNING|ERROR|FATAL|PANIC";
 
 /**
  * Ключи, значение которых красится как уровень, а не как обычная строка.
@@ -401,7 +417,7 @@ export function colorJson(text: string): string {
         lastKey = raw.slice(1, -1);
         out += paint(keyColor(lastKey), raw);
       } else {
-        out += paint(levelValueColor(lastKey, raw.slice(1, -1)) ?? C.string, raw);
+        out += paintValue(levelValueColor(lastKey, raw.slice(1, -1)) ?? C.string, raw);
       }
 
       index = end;
@@ -485,7 +501,7 @@ export function colorLogfmt(text: string): string {
     out += plainSegment(text.slice(index, start));
     out += paint(keyColor(key), key);
     out += paint(C.punct, "=");
-    out += paint(valueColor(key, value), value);
+    out += paintValue(valueColor(key, value), value);
     index = start + pair[0].length;
   }
 
@@ -502,9 +518,9 @@ function valueColor(key: string, value: string): Color {
   return C.string;
 }
 
-/** Текст между парами logfmt: уровень подсветить, остальное не трогать. */
+/** Текст между парами logfmt: уровень и токены подсветить, остальное не трогать. */
 function plainSegment(text: string): string {
-  return text === "" ? text : highlightLevel(text);
+  return text === "" ? text : highlightPlain(text);
 }
 
 /**
@@ -512,6 +528,9 @@ function plainSegment(text: string): string {
  *
  * Тут ничего не разбирается по-настоящему — только подсвечивается то, что
  * узнаётся наверняка. Всё прочее остаётся ровно как в kubectl.
+ *
+ * Авария и стектрейс красятся целиком и токенов внутри не ищут: строка уже
+ * получила свой цвет, а вложенный цвет погасил бы её до конца.
  */
 export function colorPlain(text: string): string {
   if (CRASH_LINE.test(text)) return paint(C.error, text);
@@ -523,47 +542,146 @@ export function colorPlain(text: string): string {
   if (klog) {
     const [, level, header, message] = klog;
 
-    return paint(levelColor(KLOG_LEVELS[level]), level) + paint(C.faint, header) + message;
+    return (
+      paint(levelColor(KLOG_LEVELS[level]), level) + paint(C.faint, header) + highlightTokens(message)
+    );
   }
 
   const time = OWN_TIMESTAMP.exec(text);
 
   if (time) {
-    return paint(C.time, time[1]) + highlightLevel(text.slice(time[1].length));
+    return paint(C.time, time[1]) + highlightPlain(text.slice(time[1].length));
   }
 
-  return highlightLevel(text);
+  return highlightPlain(text);
 }
 
 /**
- * Уровень словом.
+ * Токены, которые узнаются в тексте без всякого формата.
  *
- * В начале строки принимается любой регистр и скобки (`[warn]`, `WARN:`),
- * дальше по строке — только капс: иначе покрасится слово «error» в середине
- * человеческой фразы.
+ * Это ответ на логи, которые не json и не logfmt, — те самые «просто строки»,
+ * где до сих пор красился один уровень. Разбирать их целиком нельзя, зато в них
+ * есть куски, которые ни с чем не спутать: адрес, uuid, имя переменной капсом,
+ * ключ командной строки, число с единицей. Их и подсвечиваем, остальное — как в
+ * `kubectl`.
+ *
+ * Все варианты собраны в одну регулярку с именованными группами и проходятся
+ * одним сканом слева направо. Так куски заведомо не пересекаются, а значит цвет
+ * не вложится в цвет: вложенный `RESET` погасил бы внешний цвет до конца строки.
+ *
+ * Порядок веток важен — побеждает первая, совпавшая в самой левой позиции.
+ * `url` идёт раньше адресов и чисел, иначе `http://10.0.0.1:8080/x` распался бы
+ * на куски.
+ *
+ * Границы почти везде через `(?<!…)`, а не через `\b`: `\b` не видит точку, и
+ * в `v1.5s` покрасился бы хвост номера версии, а в `catrtq2msqc5j0dm2vko` —
+ * кусок идентификатора.
  */
-function highlightLevel(text: string): string {
+const TOKEN = new RegExp(
+  [
+    // схема://что-угодно; хвостовая пунктуация («…на http://host.» ) остаётся снаружи
+    String.raw`(?<url>\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>\\]*[^\s"'<>\\.,;:!?)\]}])`,
+    // ipv6 — и в скобках с портом (`[2a0d:d6c0::1c5]:6432`), и голый
+    String.raw`(?<ip6>\[[0-9a-fA-F:]{2,}\](?::\d{1,5})?|(?<![\w:])(?:[0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}(?![\w:]))`,
+    // ipv4, при желании с маской и портом; октеты проверяются уже кодом
+    String.raw`(?<ip4>(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?:\/\d{1,2})?(?::\d{1,5})?(?![\w.]))`,
+    String.raw`(?<uuid>\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b)`,
+    // ПЕРЕМЕННАЯ_КАПСОМ: минимум одно подчёркивание, иначе сюда попал бы каждый
+    // уровень (`ERROR`) и каждая аббревиатура
+    String.raw`(?<env>\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b)`,
+    // ключ командной строки: только в начале слова и только перед `=`, пробелом
+    // или концом — иначе дефис внутри `kube-proxy-ds-ready` читался бы ключом
+    String.raw`(?<flag>(?<![\w=\/-])--?[A-Za-z][\w-]*(?=[=\s"'),;\]]|$))`,
+    // число с единицей: `50Mi`, `1.5s`, `200ms`, `3%`, составное `1h30m`
+    String.raw`(?<size>(?<![\w.])(?:\d+(?:[.,]\d+)?(?:[KMGTP]i?B|[KMGTP]i|ns|µs|us|ms|s|m|h|d|%))+(?![\w.]))`,
+    `(?<level>\\b(?:${LEVEL_WORDS})\\b)`,
+  ].join("|"),
+  "g",
+);
+
+/** Октеты ipv4 — единственное, что регуляркой не проверить: `999.1.1.1` не адрес. */
+function isIPv4(text: string): boolean {
+  const host = text.split("/")[0].split(":")[0];
+
+  return host.split(".").every((octet) => Number(octet) <= 255);
+}
+
+/**
+ * Похоже ли на ipv6 — проверка того, что регулярка отличить не может.
+ *
+ * Время `13:00:30` — тоже «группы через двоеточие», и красить его адресом
+ * нельзя. Настоящий адрес либо имеет `::`, либо где-то содержит букву a-f;
+ * всё остальное с двумя-тремя двоеточиями — это часы, порт или go-шный
+ * `map[a:b]`, и мы их не трогаем.
+ */
+function looksIPv6(text: string): boolean {
+  const body = text.startsWith("[") ? text.slice(1, text.indexOf("]")) : text;
+
+  return body.includes("::") || /[a-fA-F]/.test(body);
+}
+
+/**
+ * Цвет для найденного токена. `undefined` — «показалось»: кусок остаётся
+ * сырым, как будто мы его и не находили.
+ */
+function paintToken(groups: Record<string, string | undefined>, piece: string): string | undefined {
+  if (groups.url) return paint(C.addr, piece);
+  if (groups.ip6) return looksIPv6(piece) ? paint(C.addr, piece) : undefined;
+  if (groups.ip4) return isIPv4(piece) ? paint(C.addr, piece) : undefined;
+  if (groups.uuid) return paint(C.id, piece);
+  // имя красится как ключ: `LOG_LEVEL` в тексте и `log_level` в json — про одно
+  // и то же, но цвет у каждого свой и всегда один и тот же
+  if (groups.env) return paint(keyColor(piece), piece);
+  if (groups.flag) return paint(keyColor(piece.replace(/^-+/, "")), piece);
+  if (groups.size) return paint(C.number, piece);
+  if (groups.level) return paint(levelColor(piece), piece);
+
+  return undefined;
+}
+
+/**
+ * Подсветить токены в куске текста, который иначе остался бы без цвета.
+ *
+ * Зовётся и для обычных строк, и для значений, которым цвет не положен
+ * (`msg` в json, значение logfmt): там чаще всего и живут адреса. Текст между
+ * токенами не меняется вовсе.
+ */
+export function highlightTokens(text: string): string {
+  let out = "";
+  let index = 0;
+
+  for (const match of text.matchAll(TOKEN)) {
+    const start = match.index ?? 0;
+    const piece = match[0];
+    const painted = paintToken(match.groups ?? {}, piece);
+
+    if (painted === undefined) continue;
+
+    out += text.slice(index, start) + painted;
+    index = start + piece.length;
+  }
+
+  return out + text.slice(index);
+}
+
+/**
+ * Обычная строка: сначала уровень, потом токены.
+ *
+ * Уровень в начале строки принимается в любом регистре и в скобках (`[warn]`,
+ * `WARN:`), дальше по строке — только капсом: иначе покрасится слово «error» в
+ * середине человеческой фразы. Капсовый уровень — такой же токен, как адрес, и
+ * ищется в общем скане.
+ */
+function highlightPlain(text: string): string {
   const atStart = LEVEL_AT_START.exec(text);
 
   if (atStart) {
     const [whole, before, word, after] = atStart;
 
-    return before + paint(levelColor(word), word) + after + text.slice(whole.length);
+    return before + paint(levelColor(word), word) + after + highlightTokens(text.slice(whole.length));
   }
 
-  const anywhere = LEVEL_ANYWHERE.exec(text);
-
-  if (anywhere && anywhere.index !== undefined) {
-    const word = anywhere[1];
-
-    return (
-      text.slice(0, anywhere.index) +
-      paint(levelColor(word), word) +
-      text.slice(anywhere.index + word.length)
-    );
-  }
-
-  return text;
+  return highlightTokens(text);
 }
 
 /** Снять раскраску — для тестов и для того, кому нужен исходный текст. */
