@@ -43,8 +43,8 @@ Freelens 1.x показывает логи через `ansi_up` 5, 2.x — че�
 
 | Хост | Ссылка |
 |---|---|
-| Freelens 2.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.0/freelens-logscolor-2.0.0.tgz` |
-| Freelens 1.x, Lens 6.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.0/freelens-logscolor-1.0.0.tgz` |
+| Freelens 2.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.1/freelens-logscolor-2.0.1.tgz` |
+| Freelens 1.x, Lens 6.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.1/freelens-logscolor-1.0.1.tgz` |
 
 Ветка при установке нигде не называется — её выбирает номер релиза. Подробности, настройки,
 что именно красится и сборка из исходников — в README своей ветки.

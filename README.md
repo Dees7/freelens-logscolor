@@ -27,8 +27,8 @@ running, and follow these steps:
 
    | Host | URL |
    |---|---|
-   | Freelens 2.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.0/freelens-logscolor-2.0.0.tgz` |
-   | Freelens 1.x, Lens 6.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.0/freelens-logscolor-1.0.0.tgz` |
+   | Freelens 2.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.1/freelens-logscolor-2.0.1.tgz` |
+   | Freelens 1.x, Lens 6.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.1/freelens-logscolor-1.0.1.tgz` |
 
 3. Click on the **Install** button
 4. Make sure the extension is enabled
