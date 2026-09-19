@@ -1,6 +1,6 @@
 {
   "name": "freelens-logscolor",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Colorizes pod logs in the built-in Freelens 1.x / Lens 6.x log viewer: JSON, logfmt, klog, levels, stack traces",
   "publisher": "@freelens-logscolor/freelens-logscolor",
   "license": "BSD-3-Clause",
