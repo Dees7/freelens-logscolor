@@ -1,48 +1,86 @@
 # freelens-logscolor (Freelens 2.x)
 
-Раскраска логов в **штатном** просмотрщике Freelens — том самом, который открывает кнопка
-Logs у пода. Ничего больше расширение не делает: ни пунктов меню, ни колонок, ни своих
-панелей.
+A [Freelens](https://github.com/freelensapp/freelens) extension that colorizes pod logs in the
+**built-in** log viewer — the one the **Logs** button opens. That is all it does: no extra menu
+items, no extra columns, no panels of its own.
 
-> Это ветка под Freelens 2.x. Под Freelens 1.x и Lens 6.x — ветка [`v1`](../../tree/v1),
-> общее описание и схема веток — в [`main`](../../tree/main).
+> This is the branch for Freelens 2.x. For Freelens 1.x and Lens 6.x use [`v1`](../../tree/v1),
+> the overview of both is in [`main`](../../tree/main).
+> На русском — [README.ru.md](README.ru.md).
 
-![Логи пода с раскраской](logscolor.png)
+![Colored pod logs](logscolor.png)
 
-## Что красится
+## 🚧 Requirements
 
-| Формат | Как |
+- Freelens `>= 2.0.0`
+
+The package major always matches the host major, so `2.x.y` releases are for Freelens 2.x. On
+Freelens 1.x or Lens 6.x install a `1.x.y` release instead — see [`v1`](../../tree/v1).
+
+## 🧰 Installing
+
+The extension is not published to npm, so it is installed from the `.tgz` attached to its
+[GitHub release](https://github.com/Dees7/freelens-logscolor/releases). Make sure Freelens is
+running, and follow these steps:
+
+1. Go to the Extensions view (`Menu -> File -> Extensions`)
+2. Paste the release asset URL for Freelens 2.x:
+
+   ```
+   https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.0/freelens-logscolor-2.0.0.tgz
+   ```
+
+3. Click on the **Install** button
+4. Make sure the extension is enabled
+
+Freelens downloads and unpacks the archive itself. A `.tgz` you already have on disk works the
+same way: drop the file onto the Extensions view, or give it the file path.
+
+## 🎨 Features
+
+Open the logs of any pod — the lines are colored as they arrive:
+
+| Format | How |
 |---|---|
-| JSON | ключ — цветом по своему имени (см. ниже), строковые значения цветом темы, числа жёлтым, `true`/`false`/`null` сиреневым, скобки и запятые тускло |
-| `level` / `lvl` / `severity` | значение по уровню: ERROR красным, WARN жёлтым, INFO зелёным, DEBUG сиреневым, FATAL ярко-красным |
-| logfmt (`key=value`) | так же, по ключам и типам значений |
-| klog (`I0918 13:00:33.350123 1 controller.go:42]`) | буква уровня цветом, остальная шапка тускло |
-| `panic:`, `fatal error:`, `Traceback` | строка целиком красным |
-| стектрейсы (`at …`, `Caused by:`, `… 12 more`, `goroutine N [running]:`, `File "x", line N`) | тускло |
-| всё остальное | уровень словом, если он узнаётся; остальное без изменений |
+| JSON | each key gets its own color (see below), string values keep the theme color, numbers are yellow, `true`/`false`/`null` are magenta, braces and commas are faint |
+| `level` / `lvl` / `severity` | colored by level: ERROR red, WARN yellow, INFO green, DEBUG magenta, FATAL bright red |
+| logfmt (`key=value`) | the same, by key and by value type |
+| klog (`I0918 13:00:33.350123 1 controller.go:42]`) | the level letter is colored, the rest of the header is faint |
+| `panic:`, `fatal error:`, `Traceback` | the whole line is red |
+| stack traces (`at …`, `Caused by:`, `… 12 more`, `goroutine N [running]:`, `File "x", line N`) | faint |
+| anything else | the level word if it is recognized, everything else untouched |
 
-### Цвет ключа по его имени
+A key's color is derived from the key name itself, so `pod` is always one color and `trace_id`
+another, and you can find the field you need without reading the line. The same name gets the
+same color in JSON and in logfmt.
 
-Цвет ключа не один на всех: он считается из самого имени (FNV-1a по символам), поэтому `pod`
-всегда одного цвета, `trace_id` — другого, и нужное поле ловится глазом, не читая строку. Цвет
-один и тот же в JSON и в logfmt: считается от имени, а не от формата.
+Only escape codes are added — the text of the line is never changed. Broken JSON does not break
+the line, quotes are not re-escaped, and the leading kubernetes timestamp is left alone so that
+the viewer keeps loading older logs correctly.
 
-В палитре десять цветов из шестнадцати базовых, остальные исключены осознанно: красный занят
-ошибками (ключ такого цвета читался бы как авария), серый — это же faint, которым тушатся
-стектрейсы, а чёрный и белый пропадают в тёмной и светлой теме. Строковые значения не красятся
-вовсе — их в строке больше всего, и когда цветное всё подряд, не выделяется уже ничего.
+## ⚙️ Preferences
 
-Менять — в одном месте, `KEY_PALETTE` в [src/colorize.ts](src/colorize.ts).
+There are almost none: the extension is on by default, because that is exactly what it is
+installed for. To switch it off without uninstalling, create
+`~/.freelens/freelens-logscolor.json`:
 
-## Текст строки не меняется
+```json
+{ "enabled": false }
+```
 
-Добавляются только escape-коды. Это не обещание в комментарии, а проверяемое свойство: тесты
-снимают ANSI с каждого образца и сравнивают с исходником посимвольно. Поэтому кавычки не
-доэкранируются, битый JSON не роняет строку, а строка длиннее 64 КБ отдаётся вообще без
-разбора. Отдельно охраняется таймстемп kubernetes в начале строки: по нему вьювер считает
-`sinceTime` для дозагрузки, так что до него не доходит ни один escape-код.
+The change takes effect at once, no window reload needed. The extension deliberately has no
+section on the Freelens preferences page.
 
-## Установка
+## Upgrading
+
+Install the `.tgz` of the newer release the same way. Freelens asks for confirmation and removes
+the installed copy before unpacking the new one.
+
+## Uninstalling
+
+Go to the Extensions view and click the **Uninstall** button next to the extension.
+
+## Building from source
 
 ```sh
 git clone https://github.com/Dees7/freelens-logscolor.git
@@ -53,57 +91,9 @@ mkdir -p ~/.freelens/extensions
 ln -s "$PWD" ~/.freelens/extensions/freelens-logscolor
 ```
 
-Дальше — Cmd+R в окне Freelens. В devtools появится `[logscolor] раскраска логов подключена`.
+Then Cmd+R in the Freelens window. `npm run check` runs types, tests, build and smoke;
+`npm run pack` produces the `.tgz`. More detail — in [README.ru.md](README.ru.md).
 
-Собранный `.tgz` (`npm run pack`) ставится обычным способом, через Extensions в приложении.
+## License
 
-## Настройка
-
-Её почти нет: расширение включено по умолчанию, потому что ровно для этого и ставится.
-Выключить, не удаляя, — файлом `~/.freelens/freelens-logscolor.json` (или `~/.k8slens/…`, если
-работаете в Lens):
-
-```json
-{ "enabled": false }
-```
-
-Правка действует сразу, перезапускать окно не нужно. Своей панели в настройках приложения у
-расширения нет намеренно: она потребовала бы React от хоста, а без неё расширение обходится
-одним `@freelensapp/extensions` и работает на **ванильной** сборке Freelens 2.x, без патчей.
-
-## Чем приходится платить
-
-Точки расширения для логов в API Freelens нет, поэтому расширение оборачивает метод `getLogs`
-у того же экземпляра `PodApi`, через который вьювер и читает логи
-([src/log-colors.ts](src/log-colors.ts)). Отсюда:
-
-- экземпляр общий, поэтому раскрашенным станет и «Download all logs» — в файл попадут
-  escape-коды;
-- поиск по логам идёт по строке с кодами, поэтому совпадение, попавшее на границу цвета
-  (например `"msg"` вместе с кавычками), может не подсветиться;
-- если апстрим переименует метод, обёртка просто не поставится и скажет об этом в devtools.
-
-## Разработка
-
-```sh
-npm run check    # типы + тесты + сборка + smoke
-npm test         # только тесты (17 проверок, все — на инвариант «текст не изменился»)
-npm run smoke    # собранный бандл грузится так же, как его грузит хост, и красит ответ
-npm start        # пересборка на каждое изменение
-```
-
-`dist/` в git не лежит, а форматы сборки у веток разные: здесь ESM, в `v1` — CommonJS.
-После `git switch` в рабочем каталоге остаётся бандл прошлой ветки, и приложение молча не
-загрузит расширение. Поэтому после переключения веток всегда `npm install && npm run build`,
-а потом Cmd+R. `npm run smoke` ловит ровно этот случай.
-
-`npm run type:check` требует соседнего чекаута Freelens (`../freelens`): типы
-`@freelensapp/extensions` 2.x на npm не опубликованы. Тесты и сборка от него не зависят.
-
-Правки самой раскраски живут в [src/colorize.ts](src/colorize.ts) — файл без единого импорта,
-чистые строковые функции. Он общий с веткой `v1` (кроме одной константы `FAINT`), так что
-переносить изменения между ветками нужно черри-пиком, а не слиянием.
-
-## Лицензия
-
-BSD 3-Clause, см. [LICENSE](LICENSE).
+BSD 3-Clause, see [LICENSE](LICENSE).
