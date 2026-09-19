@@ -73,7 +73,7 @@ Freelens:
 2. Вставить ссылку на артефакт релиза под Freelens 2.x:
 
    ```
-   https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.1/freelens-logscolor-2.0.1.tgz
+   https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.2/freelens-logscolor-2.0.2.tgz
    ```
 
 3. Нажать **Install**
@@ -135,7 +135,7 @@ ln -s "$PWD" ~/.freelens/extensions/freelens-logscolor
 
 ```sh
 npm run check    # типы + тесты + сборка + smoke
-npm test         # только тесты (17 проверок, все — на инвариант «текст не изменился»)
+npm test         # только тесты (21 проверка, все — на инвариант «текст не изменился»)
 npm run smoke    # собранный бандл грузится так же, как его грузит хост, и красит ответ
 npm start        # пересборка на каждое изменение
 ```

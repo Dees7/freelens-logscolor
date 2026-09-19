@@ -27,7 +27,7 @@ running, and follow these steps:
 2. Paste the release asset URL for Freelens 2.x:
 
    ```
-   https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.1/freelens-logscolor-2.0.1.tgz
+   https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.2/freelens-logscolor-2.0.2.tgz
    ```
 
 3. Click on the **Install** button
