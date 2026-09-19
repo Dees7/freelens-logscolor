@@ -226,7 +226,7 @@ export function colorizeLine(line: string): string {
     return prefix + colorizeMessage(rest);
   } catch (error) {
     // цвет — не повод потерять строку лога
-    console.warn("[logscolor] не раскрасил строку лога:", error);
+    console.warn("[logscolor] could not colorize a log line:", error);
 
     return line;
   }

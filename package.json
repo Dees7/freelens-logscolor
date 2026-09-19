@@ -2,7 +2,7 @@
   "name": "freelens-logscolor",
   "version": "2.0.0",
   "type": "module",
-  "description": "Раскраска логов в штатном просмотрщике Freelens 2.x: JSON, logfmt, klog, уровни, стектрейсы",
+  "description": "Colorizes pod logs in the built-in Freelens 2.x log viewer: JSON, logfmt, klog, levels, stack traces",
   "publisher": "@freelens-logscolor/freelens-logscolor",
   "license": "BSD-3-Clause",
   "repository": {

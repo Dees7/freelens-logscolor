@@ -72,7 +72,7 @@ export function config(): Config {
 
     parsed = { enabled: (raw as Partial<Config> | null)?.enabled !== false };
   } catch (error) {
-    console.warn(`[logscolor] не разобрал ${file}, оставляю прежнюю настройку:`, error);
+    console.warn(`[logscolor] could not parse ${file}, keeping the previous setting:`, error);
 
     return cache?.config ?? DEFAULT;
   }

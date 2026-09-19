@@ -53,7 +53,7 @@ Freelens:
 2. Вставить ссылку на артефакт релиза под Freelens 2.x:
 
    ```
-   https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.0/freelens-logscolor-2.0.0.tgz
+   https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.1/freelens-logscolor-2.0.1.tgz
    ```
 
 3. Нажать **Install**
@@ -109,7 +109,8 @@ mkdir -p ~/.freelens/extensions
 ln -s "$PWD" ~/.freelens/extensions/freelens-logscolor
 ```
 
-Дальше — Cmd+R в окне Freelens. В devtools появится `[logscolor] раскраска логов подключена`.
+Дальше — Cmd+R в окне Freelens. В devtools появится `[logscolor] log coloring is on`
+(сообщения расширения — на английском, как и всё, что видит пользователь).
 Свой `.tgz` собирается `npm run pack` и ставится через Extensions, как релизный.
 
 ```sh
