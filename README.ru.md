@@ -43,11 +43,15 @@ Freelens 1.x показывает логи через `ansi_up` 5, 2.x — че�
 
 | Хост | Ссылка |
 |---|---|
-| Freelens 2.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.2/freelens-logscolor-2.0.2.tgz` |
-| Freelens 1.x, Lens 6.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.2/freelens-logscolor-1.0.2.tgz` |
+| Freelens 2.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.3/freelens-logscolor-2.0.3.tgz` |
+| Freelens 1.x, Lens 6.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.3/freelens-logscolor-1.0.3.tgz` |
 
 Ветка при установке нигде не называется — её выбирает номер релиза. Подробности, настройки,
 что именно красится и сборка из исходников — в README своей ветки.
+
+**Обновление требует перезапуска приложения.** Установка нового `.tgz` поверх старого сама по
+себе ничего не меняет в уже открытом окне: расширение оборачивает чтение логов один раз, при
+активации, и до перезапуска в окне работает обёртка прошлой версии.
 
 ## Релизы
 

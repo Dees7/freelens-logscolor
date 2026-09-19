@@ -27,8 +27,8 @@ running, and follow these steps:
 
    | Host | URL |
    |---|---|
-   | Freelens 2.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.2/freelens-logscolor-2.0.2.tgz` |
-   | Freelens 1.x, Lens 6.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.2/freelens-logscolor-1.0.2.tgz` |
+   | Freelens 2.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.3/freelens-logscolor-2.0.3.tgz` |
+   | Freelens 1.x, Lens 6.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.3/freelens-logscolor-1.0.3.tgz` |
 
 3. Click on the **Install** button
 4. Make sure the extension is enabled
@@ -70,6 +70,10 @@ numbers, different artifacts, different hosts.
 
 Install the `.tgz` of the newer release the same way. The app asks for confirmation and removes
 the installed copy before unpacking the new one.
+
+**Then restart the app.** Installing over the old copy changes nothing in a window that is
+already open: the extension wraps log reading once, when it activates, so until the restart the
+window keeps running the wrapper of the previous version.
 
 ## Uninstalling
 
