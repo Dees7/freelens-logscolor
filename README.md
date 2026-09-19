@@ -1,65 +1,78 @@
 # freelens-logscolor
 
-Раскраска логов в штатном просмотрщике [Freelens](https://freelens.app): JSON, logfmt, klog,
-уровни, стектрейсы. Ничего не настраивает и никуда не ходит — только добавляет ANSI-коды в
-текст, который вьювер и так умеет показывать цветом.
+A [Freelens](https://freelens.app) extension that colorizes pod logs in the built-in log viewer:
+JSON, logfmt, klog, levels, stack traces. It configures nothing and calls nowhere — it only adds
+ANSI codes to text the viewer already knows how to show in color.
+
+> На русском — [README.ru.md](README.ru.md).
+
+![Colored pod logs](logscolor.png)
+
+## 🚧 Requirements
+
+- Freelens 2.x — install a `2.x.y` release
+- Freelens 1.x or Lens 6.x — install a `1.x.y` release
+
+The package major always matches the host major. That is the only thing to remember when picking
+a version.
+
+## 🧰 Installing
+
+The extension is not published to npm, so it is installed from the `.tgz` attached to its
+[GitHub release](https://github.com/Dees7/freelens-logscolor/releases). Make sure the app is
+running, and follow these steps:
+
+1. Go to the Extensions view (`Menu -> File -> Extensions`)
+2. Paste the release asset URL for your host:
+
+   | Host | URL |
+   |---|---|
+   | Freelens 2.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.0/freelens-logscolor-2.0.0.tgz` |
+   | Freelens 1.x, Lens 6.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.0/freelens-logscolor-1.0.0.tgz` |
+
+3. Click on the **Install** button
+4. Make sure the extension is enabled
+
+The app downloads and unpacks the archive itself. A `.tgz` you already have on disk works the
+same way: drop the file onto the Extensions view, or give it the file path.
+
+## 🎨 Features
 
 ```
 2026-09-18T13:00:33Z {"level":"error","msg":"connect failed","pod":"api-7f9","attempt":3}
-                      ╰ ключ цветом по имени   ╰ красный      ╰ свой цвет   ╰ жёлтым
+                      ╰ key colored by name    ╰ red          ╰ its own color  ╰ yellow
 ```
 
-## Кода в этой ветке нет
+JSON, logfmt and klog lines are taken apart by key and by value type; `level` / `lvl` /
+`severity` is colored by its level; panics and stack traces are marked as a whole. Each key's
+color comes from the key name itself, so `pod` is always one color and `trace_id` another. Only
+escape codes are added — the text of the line is never changed.
 
-`main` держит только README и лицензию. Расширение существует в двух несовместимых сборках —
-у Freelens 1.x и 2.x разный способ загрузки расширений, — и каждая живёт в своей ветке:
+The full table of what gets colored, and the one setting there is, are in the README of your
+branch.
 
-| Ветка | Хост | Версия пакета | Сборка |
+## 📦 Where the code is
+
+This branch holds only the README and the license. The extension exists as two incompatible
+builds — Freelens 1.x and 2.x load extensions differently — and each lives in its own branch:
+
+| Branch | Host | Package version | Release tag |
 |---|---|---|---|
-| [`v2`](../../tree/v2) | Freelens 2.x | `2.x.y` | ESM, API с `globalThis.FreelensExtensionApi` |
-| [`v1`](../../tree/v1) | Freelens 1.x, Lens 6.x | `1.x.y` | CommonJS, API с `global.LensExtensions` |
+| [`v2`](../../tree/v2) | Freelens 2.x | `2.x.y` | `v2.0.0`, `v2.0.1`, … |
+| [`v1`](../../tree/v1) | Freelens 1.x, Lens 6.x | `1.x.y` | `v1.0.0`, `v1.0.1`, … |
 
-Мажор пакета = мажор хоста. Это единственное, что нужно помнить, выбирая версию.
+The branches are never merged into each other, and each releases on its own: different version
+numbers, different artifacts, different hosts.
 
-Ветки не сливаются между собой: общий код в них одинаковый, а различия (сборка, манифест,
-одна константа палитры) постоянные. Правка логики раскраски переносится черри-пиком.
+## Upgrading
 
-## Что различается, кроме сборки
+Install the `.tgz` of the newer release the same way. The app asks for confirmation and removes
+the installed copy before unpacking the new one.
 
-Freelens 1.x показывает логи через `ansi_up` 5, 2.x — через `ansi_up` 6. В пятой версии нет
-`faint` (SGR 2), поэтому в ветке `v1` тусклый цвет заменён на серый: иначе скобки, таймстемпы
-и стектрейсы остались бы обычным цветом темы. Всё остальное — базовые цвета 30–37 и 90–97 —
-одинаково понимают обе.
+## Uninstalling
 
-## Установка
+Go to the Extensions view and click the **Uninstall** button next to the extension.
 
-Готовых релизов пока нет. Собрать из нужной ветки:
+## License
 
-```sh
-git clone https://github.com/Dees7/freelens-logscolor.git
-cd freelens-logscolor
-git switch v2            # или v1
-npm install && npm run build
-mkdir -p ~/.freelens/extensions
-ln -s "$PWD" ~/.freelens/extensions/freelens-logscolor
-```
-
-Дальше — перезапуск окна Freelens (Cmd+R). Подробности, настройки и что именно красится —
-в README своей ветки.
-
-## Релизы
-
-Два независимых потока, по одному на ветку. Тег несёт мажор хоста, так что перепутать сборки
-нельзя:
-
-| Ветка | Тег | Артефакт |
-|---|---|---|
-| `v1` | `v1.0.0`, `v1.0.1`, … | `freelens-logscolor-1.0.0.tgz` |
-| `v2` | `v2.0.0`, `v2.0.1`, … | `freelens-logscolor-2.0.0.tgz` |
-
-Порядок выпуска — в `RELEASING.md` соответствующей ветки. Релиз одной ветки не требует
-трогать другую: у них разные номера, разные артефакты и разные хосты.
-
-## Лицензия
-
-BSD 3-Clause, см. [LICENSE](LICENSE).
+BSD 3-Clause, see [LICENSE](LICENSE).
