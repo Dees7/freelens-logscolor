@@ -118,6 +118,10 @@ section on the Freelens preferences page.
 Install the `.tgz` of the newer release the same way. Freelens asks for confirmation and removes
 the installed copy before unpacking the new one.
 
+**Then restart Freelens.** Installing over the old copy changes nothing in a window that is
+already open: the extension wraps log reading once, when it activates, so until the restart the
+window keeps running the wrapper of the previous version.
+
 ## Uninstalling
 
 Go to the Extensions view and click the **Uninstall** button next to the extension.
