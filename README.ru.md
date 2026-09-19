@@ -95,7 +95,7 @@ Freelens:
 2. Вставить ссылку на артефакт релиза под Freelens 2.x:
 
    ```
-   https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.2/freelens-logscolor-2.0.2.tgz
+   https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.3/freelens-logscolor-2.0.3.tgz
    ```
 
 3. Нажать **Install**
