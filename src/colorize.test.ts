@@ -59,6 +59,14 @@ const SAMPLES = [
   KUBE_TS + "[WARN] диск кончается, осталось 3%",
   KUBE_TS + "{не json, но начинается с фигурной скобки",
   KUBE_TS + '{"оборванный json": "без закрывающей',
+  // шелловская строка из daemonset'а: ни json, ни logfmt — и до токенов в ней
+  // не красилось ровно ничего
+  KUBE_TS +
+    'SECONDARY_KUBELET_OPTS="--node-labels=node.kubernetes.io/kube-proxy-ds-ready=true,' +
+    'yandex.cloud/node-group-id=catrtq2msqc5j0dm2vko --cluster-dns=169.254.20.10 ' +
+    '--container-log-max-size=50Mi "',
+  KUBE_TS + "dial tcp [2a0d:d6c0:0:ff1b::1c5]:6432: i/o timeout after 1h30m",
+  KUBE_TS + "GET https://api.example.com/v1/pods?limit=100 -> 200 in 12ms",
   KUBE_TS,
   "",
   "строка совсем без таймстемпа",
@@ -274,6 +282,80 @@ check("уровень в обычной строке: капс красится,
   assert.strictEqual(colorPlain("не удалось: error while reading"), "не удалось: error while reading");
   // в начале строки строчный уровень всё же узнаётся
   assert.ok(colorPlain("warn: диск кончается").includes(`\u001b[${levelColor("warn")}mwarn`));
+});
+
+check("адреса находятся в тексте любого формата", () => {
+  // ради них всё и затевалось: в строке без формата адрес — единственное, что
+  // ищут глазами, а раньше он был того же цвета, что и весь остальной текст
+  const ip4 = colorPlain("connected to 10.0.0.1:6432");
+  const ip6 = colorPlain("dial tcp [2a0d:d6c0:0:ff1b::1c5]:6432: i/o timeout");
+  const url = colorPlain("GET https://api.example.com/v1/pods?limit=100 -> 200");
+  const uuid = colorPlain("cluster 6f1e4f9a-1c3d-4b7a-9f2e-0a1b2c3d4e5f is ready");
+
+  assert.ok(hasColor(ip4, "10.0.0.1:6432"), ip4);
+  assert.ok(hasColor(ip6, "[2a0d:d6c0:0:ff1b::1c5]:6432"), ip6);
+  assert.ok(hasColor(url, "https://api.example.com/v1/pods?limit=100"), url);
+  assert.ok(hasColor(uuid, "6f1e4f9a-1c3d-4b7a-9f2e-0a1b2c3d4e5f"), uuid);
+  // точка в конце фразы — это точка, а не часть адреса
+  assert.ok(colorPlain("см. http://host/path.").endsWith("."), "хвостовая точка уехала в url");
+});
+
+check("время, версия и прочее похожее адресом не притворяются", () => {
+  // всё это регулярка адреса ловит, и отличить их можно только проверкой
+  const same = [
+    "время 13:00:30 и версия v1.5.2 и дата 2026-09-18",
+    "октетов таких не бывает: 999.1.1.1",
+    "узел 1-2-3 в порядке",
+  ];
+
+  for (const line of same) {
+    assert.strictEqual(colorPlain(line), line, `покрасилось то, что адресом не является: ${line}`);
+  }
+});
+
+check("переменная капсом и ключ команды красятся как ключи", () => {
+  const line = 'SECONDARY_KUBELET_OPTS="--cluster-dns=169.254.20.10 --node-labels=a/kube-proxy-ds-ready=true"';
+  const painted = colorPlain(line);
+
+  assert.strictEqual(stripAnsi(painted), line);
+  // цвет считается от имени — так же, как у ключа json и logfmt
+  assert.ok(painted.includes(`[${keyColor("SECONDARY_KUBELET_OPTS")}mSECONDARY_KUBELET_OPTS`), painted);
+  assert.ok(painted.includes(`[${keyColor("cluster-dns")}m--cluster-dns`), painted);
+  // дефис внутри слова ключом не является, иначе покрасилось бы пол-значения
+  assert.ok(!hasColor(painted, "-proxy"), "дефис внутри значения принят за ключ команды");
+  // капс без подчёркивания — это уровень или аббревиатура, а не имя переменной
+  assert.strictEqual(colorPlain("HTTP GET готов"), "HTTP GET готов");
+});
+
+check("число с единицей — число, без единицы — просто текст", () => {
+  assert.ok(hasColor(colorPlain("limit 50Mi"), "50Mi"));
+  assert.ok(hasColor(colorPlain("took 250ms"), "250ms"));
+  assert.ok(hasColor(colorPlain("ждали 1h30m"), "1h30m"), "составная длительность распалась");
+  assert.ok(hasColor(colorPlain("[WARN] диск кончается, осталось 3%"), "3%"));
+  // без единицы число в тексте не выделяется: иначе подсветится каждая цифра в строке
+  assert.strictEqual(colorPlain("вернулось 200 записей"), "вернулось 200 записей");
+});
+
+check("токены находятся и внутри значений, которым своего цвета не положено", () => {
+  const json = colorJson('{"msg":"dial tcp 169.254.20.10:53: i/o timeout","note":"всё хорошо"}');
+  const logfmt = colorizeLine(`${KUBE_TS}level=warn msg="node 10.0.0.1 is flapping"`);
+
+  assert.ok(hasColor(json, "169.254.20.10:53"), json);
+  assert.ok(hasColor(logfmt, "10.0.0.1"), logfmt);
+  // остальное в значении по-прежнему без цвета
+  assert.ok(json.includes('"всё хорошо"') && !hasColor(json, '"всё хорошо"'), "значению дали цвет целиком");
+});
+
+check("уже покрашенную строку токены не трогают", () => {
+  // цвет в цвете погасил бы внешний до конца строки: вложенный сброс общий
+  const stack = colorPlain("\tat com.example.Foo.connect(10.0.0.1:6432)");
+  const panic = colorPlain("panic: dial 10.0.0.1:6432 failed after 500ms");
+
+  for (const painted of [stack, panic]) {
+    const opens = painted.match(/\[(?!0m)[0-9;]+m/g) ?? [];
+
+    assert.strictEqual(opens.length, 1, `цвет лёг поверх цвета: ${painted}`);
+  }
 });
 
 check("весь ответ целиком: строки не склеиваются и не теряются", () => {

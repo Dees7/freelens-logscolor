@@ -48,7 +48,29 @@ Open the logs of any pod — the lines are colored as they arrive:
 | klog (`I0918 13:00:33.350123 1 controller.go:42]`) | the level letter is colored, the rest of the header is grey |
 | `panic:`, `fatal error:`, `Traceback` | the whole line is red |
 | stack traces (`at …`, `Caused by:`, `… 12 more`, `goroutine N [running]:`, `File "x", line N`) | grey |
-| anything else | the level word if it is recognized, everything else untouched |
+| anything else | the level word if it is recognized, plus the tokens below |
+
+### Tokens recognized in any format
+
+Most pod logs are neither JSON nor logfmt — they are plain lines, and there is nothing to take
+apart in them. What can still be found there are pieces you cannot mistake for anything else:
+
+| Token | How |
+|---|---|
+| IPv4 and IPv6 addresses, with a port or a mask (`10.0.0.1:6432`, `[2a0d:d6c0:0:ff1b::1c5]:6432`) | cyan |
+| URLs (`https://api.example.com/v1/pods?limit=100`) | cyan |
+| UUIDs | magenta |
+| `SHOUTY_SNAKE_CASE` names (`SECONDARY_KUBELET_OPTS`, `LOG_LEVEL`) | colored by the name, like a key |
+| command-line flags (`--cluster-dns`, `-v`) | colored by the name, like a key |
+| numbers with a unit (`50Mi`, `250ms`, `1h30m`, `95%`) | yellow |
+
+They are highlighted in plain lines and inside values that have no color of their own — an IP in
+`msg` is the usual case. A line that is already colored as a whole (a panic, a stack trace) is
+left as it is: a color inside a color would cancel the outer one.
+
+What merely looks like an address stays untouched: a time (`13:00:30`), a version (`v1.5.2`), a
+date, an impossible octet (`999.1.1.1`). A bare number is not highlighted either — only a number
+with a unit — otherwise every digit in the line would light up.
 
 ### The level field: names and numbers
 
