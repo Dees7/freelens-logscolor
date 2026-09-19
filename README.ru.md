@@ -61,7 +61,7 @@ AnsiUp 6 его понимает. Это единственное место, г
 2. Вставить ссылку на артефакт релиза под Freelens 1.x и Lens 6.x:
 
    ```
-   https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.0/freelens-logscolor-1.0.0.tgz
+   https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.1/freelens-logscolor-1.0.1.tgz
    ```
 
 3. Нажать **Install**
@@ -120,9 +120,9 @@ ln -s "$PWD" ~/.freelens/extensions/freelens-logscolor
 
 В Lens 6.x каталог расширений тот же по смыслу, но свой: `~/.k8slens/extensions`.
 
-Дальше — Cmd+R в окне приложения. В devtools появится
-`[logscolor] раскраска логов подключена`. Свой `.tgz` собирается `npm run pack` и ставится через
-Extensions, как релизный.
+Дальше — Cmd+R в окне приложения. В devtools появится `[logscolor] log coloring is on`
+(сообщения расширения — на английском, как и всё, что видит пользователь). Свой `.tgz` собирается
+`npm run pack` и ставится через Extensions, как релизный.
 
 ```sh
 npm run check    # типы + тесты + сборка + smoke

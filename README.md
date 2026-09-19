@@ -27,7 +27,7 @@ running, and follow these steps:
 2. Paste the release asset URL for Freelens 1.x and Lens 6.x:
 
    ```
-   https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.0/freelens-logscolor-1.0.0.tgz
+   https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.1/freelens-logscolor-1.0.1.tgz
    ```
 
 3. Click on the **Install** button

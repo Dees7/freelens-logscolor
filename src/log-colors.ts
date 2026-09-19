@@ -50,9 +50,9 @@ export function installLogColors(): void {
       original(params, query).then((logs) => (enabled() ? colorizeLogs(logs) : logs))) as GetLogs;
 
     api[MARK] = true;
-    console.info("[logscolor] раскраска логов подключена");
+    console.info("[logscolor] log coloring is on");
   } catch (error) {
     // в корневом фрейме подового стора нет — это норма, а не поломка
-    console.warn("[logscolor] не подключил раскраску логов:", error);
+    console.warn("[logscolor] log coloring not installed:", error);
   }
 }
