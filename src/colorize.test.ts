@@ -18,6 +18,7 @@ import {
   keyColor,
   levelColor,
   looksLogfmt,
+  numericLevel,
   stripAnsi,
 } from "./colorize";
 
@@ -110,6 +111,67 @@ check("уровень внутри json красится по значению, 
   // msg — обычная строка, она не должна получить ни цвет уровня, ни какой-либо ещё
   assert.ok(error.includes('"boom"'), "значение msg потеряно");
   assert.ok(!hasColor(error, '"boom"'), "значению msg зачем-то дали цвет");
+});
+
+check("уровень узнаётся под всеми ходовыми именами ключа", () => {
+  // имя поля у каждого логгера своё, а смысл один: не покрасить — значит потерять уровень
+  const keys = [
+    "level",
+    "lvl",
+    "severity",
+    "logLevel",
+    "log_level",
+    "levelname", // python logging
+    "log.level", // ECS / Elastic
+    "severity_text", // OpenTelemetry
+    "severityText",
+    "@level", // hashicorp
+  ];
+
+  for (const key of keys) {
+    const painted = colorJson(`{${JSON.stringify(key)}:"error"}`);
+
+    assert.ok(painted.includes(`\u001b[${levelColor("error")}m"error"`), `уровень под ключом ${key} не покрашен`);
+  }
+});
+
+check("уровень цифрой красится по шкале своего логгера, а не как число", () => {
+  // pino и bunyan: 30 info, 50 error. раньше оба были жёлтыми, то есть 50 читался как warn
+  assert.strictEqual(numericLevel("level", "30"), "info");
+  assert.strictEqual(numericLevel("level", "50"), "error");
+  assert.strictEqual(numericLevel("level", "60"), "fatal");
+  // питон считает иначе: те же 30 у него warning
+  assert.strictEqual(numericLevel("levelno", "30"), "warn");
+  // OpenTelemetry — по четыре номера на уровень
+  assert.strictEqual(numericLevel("severityNumber", "17"), "error");
+
+  const info = colorJson('{"level":30,"msg":"boom"}');
+  const error = colorJson('{"level":50,"msg":"boom"}');
+
+  assert.ok(info.includes(`\u001b[${levelColor("info")}m30`), "info цифрой не покрашен");
+  assert.ok(error.includes(`\u001b[${levelColor("error")}m50`), "error цифрой не покрашен");
+  assert.notStrictEqual(levelColor("info"), levelColor("error"));
+  // и в logfmt тоже: раньше там числовой уровень не красился вовсе
+  assert.ok(colorizeLine(`${KUBE_TS}level=50 msg=boom`).includes(`\u001b[${levelColor("error")}m50`));
+});
+
+check("числа, которые не уровень, остаются числами", () => {
+  // у ключа нет шкалы — значит число и есть число
+  assert.strictEqual(numericLevel("code", "500"), undefined);
+  assert.strictEqual(numericLevel("level", "не число"), undefined);
+  // severity в syslog числовой и перевёрнутый (0 — emerg, 7 — debug): любая шкала соврёт
+  assert.strictEqual(numericLevel("severity", "3"), undefined);
+  assert.ok(colorJson('{"code":500}').includes("\u001b[0;33m500"), "обычное число потеряло свой цвет");
+});
+
+check("вложенность не мешает: уровень красится на любой глубине", () => {
+  const painted = colorJson('{"a":{"b":{"severity":"warning","msg":"deep"}}}');
+
+  assert.ok(painted.includes(`\u001b[${levelColor("warn")}m"warning"`), "уровень в глубине не покрашен");
+  // после закрытия вложенного объекта имя ключа не должно тянуться дальше
+  const after = colorJson('{"o":{"level":"info"},"note":"error happened"}');
+
+  assert.ok(!hasColor(after, '"error happened"'), "слово error во фразе покрасилось как уровень");
 });
 
 check("ключ всегда одного цвета — и в json, и в logfmt", () => {
