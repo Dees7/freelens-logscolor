@@ -148,12 +148,82 @@ export function keyColor(name: string): Color {
  */
 const KUBE_TIMESTAMP = /^(\d{4}-\d{2}-\d{2}T[\d:.]+(?:Z|[+-]\d{2}:?\d{2}) )([\s\S]*)$/;
 
-/** Таймстемп в начале самого сообщения — этот уже можно притушить. */
-const OWN_TIMESTAMP = /^(\d{4}-\d{2}-\d{2}[T ][\d:.,]+(?:Z|[+-]\d{2}:?\d{2})?)/;
+/**
+ * Таймстемп в начале самого сообщения — этот уже можно притушить.
+ *
+ * Форматов много, и каждый живой: логгер пишет так, как принято в его языке и
+ * регионе. Узнаются:
+ *
+ * - ISO 8601 и его «пробельный» вариант, с `,` в долях (log4j, python):
+ *   `2026-09-23T15:13:40.716Z`, `2026-09-23 15:13:40,716 +0300`;
+ * - год первым через `/` или `.`: `2026/09/23 15:13:40` — Go `log`, nginx,
+ *   fluent-bit; `2026.09.23 15:13:40.716` — ClickHouse;
+ * - день первым: `23.09.2026 15:13:40` (ru, de), `23/09/2026`, американское
+ *   `09/23/2026 03:13:40 PM` — день это или месяц, для цвета неважно;
+ * - месяц словом: `23/Sep/2026:15:13:40 +0000` (access-лог apache и nginx),
+ *   `23-Sep-2026 15:13:40.716` (tomcat);
+ * - syslog и ctime: `Sep 23 15:13:40`, `Wed Sep 23 15:13:40.123456 2026` (error-лог apache);
+ * - просто время: `15:13:40.716` — так пишут консольные логгеры в dev-режиме.
+ *
+ * Любой из них может стоять в квадратных скобках — тогда скобки тушатся вместе
+ * с ним. Справа таймстемп обязан заканчиваться: цифра или буква сразу за ним
+ * значат, что это не время, а что-то на него похожее.
+ */
+const MONTH = "(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)";
+const WEEKDAY = "(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)";
+const CLOCK = String.raw`\d{1,2}:\d{2}(?::\d{2})?(?:[.,]\d+)?(?:\s?[AP]M)?`;
+const ZONE = String.raw`(?:Z|\s?[+-]\d{2}:?\d{2}|\s(?:UTC|GMT))?`;
+const TIMESTAMP = [
+  String.raw`\d{4}-\d{2}-\d{2}(?:[T ]${CLOCK})?`,
+  String.raw`\d{4}[/.]\d{2}[/.]\d{2}(?:[T ]${CLOCK})?`,
+  String.raw`\d{1,2}[./-]\d{1,2}[./-]\d{4}(?:,?\s${CLOCK})?`,
+  String.raw`\d{1,2}[/ -]${MONTH}[/ -]\d{4}(?:[: ]${CLOCK})?`,
+  String.raw`(?:${WEEKDAY}\s)?${MONTH}\s+\d{1,2}\s${CLOCK}(?:\s\d{4})?`,
+  // одно время без даты — только с секундами, иначе `10:30` из фразы сошло бы за него
+  String.raw`\d{1,2}:\d{2}:\d{2}(?:[.,]\d+)?`,
+]
+  .map((format) => `(?:${format})${ZONE}`)
+  .join("|");
+const OWN_TIMESTAMP = new RegExp(String.raw`^(\[\s*(?:${TIMESTAMP})\s*\]|(?:${TIMESTAMP})(?![\w:.\/-]))`);
 
-/** Уровень словом: в начале строки — в любом регистре, дальше — только капсом. */
-const LEVEL_AT_START = /^(\s*[[<(]?)(trace|debug|info|warn|warning|error|fatal|panic)([\]>)]?\b)/i;
+/**
+ * Уровень словом: в начале строки — в любом регистре, дальше — только капсом.
+ *
+ * В начале он может стоять в скобках, и внутри скобок бывает пробел: fluent-bit
+ * выравнивает `[ info]` и `[ warn]` по ширине `[error]`. Здесь же уровни
+ * syslog, которые пишут nginx и apache: `[crit]`, `[emerg]`, `[alert]`, `[notice]`,
+ * и `SEVERE` из java.util.logging (tomcat).
+ */
+const LEVEL_AT_START =
+  /^(\s*[[<(]?\s*)(trace|debug|info|notice|warn|warning|error|severe|crit|critical|alert|emerg|fatal|panic)(\s*[\]>)](?!\w)|\b)/i;
 const LEVEL_WORDS = "TRACE|DEBUG|INFO|WARN|WARNING|ERROR|FATAL|PANIC";
+
+/**
+ * Уровень буквой с восклицательным знаком: `I! [agent] Starting Telegraf`.
+ *
+ * Так пишет Telegraf и всё, что собрано на его логгере (`influxdata/wlog`):
+ * Kapacitor, сторонние плагины и сборки Telegraf. Буква с `!` и пробелом после
+ * ни с чем другим в начале строки не путается.
+ */
+const LEVEL_BANG = /^(\s*)([TDIWE]!)(?=\s|$)/;
+
+const BANG_LEVELS: Record<string, string> = {
+  T: "trace",
+  D: "debug",
+  I: "info",
+  W: "warn",
+  E: "error",
+};
+
+/**
+ * Тег компонента сразу за уровнем: `[engine]`, `[input:tail:tail.0]`,
+ * `[outputs.yandex_monitoring]`. Красится как ключ, по имени — так строки
+ * одного плагина видны в потоке одним цветом.
+ *
+ * Ищется только прямо за уровнем: скобки где-то посреди текста могут значить
+ * что угодно, от индекса массива до `[running]` у горутины.
+ */
+const COMPONENT_TAG = /^(\s+)\[([\w.:\/@-]+)\](?=[\s:]|$)/;
 
 /**
  * Ключи, значение которых красится как уровень, а не как обычная строка.
@@ -289,9 +359,13 @@ export function levelColor(word: string): Color {
     case "fatal":
     case "panic":
     case "critical":
+    case "crit":
+    case "alert":
+    case "emerg":
       return C.fatal;
     case "error":
     case "err":
+    case "severe": // java.util.logging, tomcat
       return C.error;
     default:
       // не уровень — значит обычное значение поля level, и красить его нечем
@@ -555,12 +629,6 @@ export function colorPlain(text: string): string {
     );
   }
 
-  const time = OWN_TIMESTAMP.exec(text);
-
-  if (time) {
-    return paint(C.time, time[1]) + highlightPlain(text.slice(time[1].length));
-  }
-
   return highlightPlain(text);
 }
 
@@ -673,23 +741,54 @@ export function highlightTokens(text: string): string {
 }
 
 /**
- * Обычная строка: сначала уровень, потом токены.
+ * Обычная строка: сначала свой таймстемп, потом уровень, потом токены.
+ *
+ * Таймстемп ищется здесь, а не в `colorPlain`, потому что сюда же попадает
+ * текст перед первой парой logfmt: у fluent-bit это
+ * `[2026/09/23 15:16:40.731] [ info] [input:tail:tail.0] inotify_fs_add(): inode=…`.
  *
  * Уровень в начале строки принимается в любом регистре и в скобках (`[warn]`,
- * `WARN:`), дальше по строке — только капсом: иначе покрасится слово «error» в
- * середине человеческой фразы. Капсовый уровень — такой же токен, как адрес, и
- * ищется в общем скане.
+ * `[ warn]`, `WARN:`) или буквой Telegraf (`W!`), дальше по строке — только
+ * капсом: иначе покрасится слово «error» в середине человеческой фразы.
+ * Капсовый уровень — такой же токен, как адрес, и ищется в общем скане.
  */
 function highlightPlain(text: string): string {
+  const time = OWN_TIMESTAMP.exec(text);
+
+  if (time) return paint(C.time, time[1]) + highlightLevel(text.slice(time[1].length));
+
+  return highlightLevel(text);
+}
+
+function highlightLevel(text: string): string {
   const atStart = LEVEL_AT_START.exec(text);
 
   if (atStart) {
     const [whole, before, word, after] = atStart;
 
-    return before + paint(levelColor(word), word) + after + highlightTokens(text.slice(whole.length));
+    return before + paint(levelColor(word), word) + after + afterLevel(text.slice(whole.length));
+  }
+
+  const bang = LEVEL_BANG.exec(text);
+
+  if (bang) {
+    const [whole, before, mark] = bang;
+
+    return before + paint(levelColor(BANG_LEVELS[mark[0]]), mark) + afterLevel(text.slice(whole.length));
   }
 
   return highlightTokens(text);
+}
+
+/** Хвост строки за уровнем: тег компонента, если он есть, потом токены. */
+function afterLevel(text: string): string {
+  const tag = COMPONENT_TAG.exec(text);
+
+  if (!tag) return highlightTokens(text);
+
+  const [whole, space, name] = tag;
+
+  return space + paint(keyColor(name), `[${name}]`) + highlightTokens(text.slice(whole.length));
 }
 
 /** Снять раскраску — для тестов и для того, кому нужен исходный текст. */
