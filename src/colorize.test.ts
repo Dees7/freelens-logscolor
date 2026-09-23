@@ -67,6 +67,13 @@ const SAMPLES = [
     '--container-log-max-size=50Mi "',
   KUBE_TS + "dial tcp [2a0d:d6c0:0:ff1b::1c5]:6432: i/o timeout after 1h30m",
   KUBE_TS + "GET https://api.example.com/v1/pods?limit=100 -> 200 in 12ms",
+  // fluent-bit: свой таймстемп в скобках, уровень выровнен пробелом, тег плагина
+  KUBE_TS + "[2026/09/23 09:14:12.831] [ warn] [engine] failed to flush chunk, retry in 9 seconds",
+  KUBE_TS + "[2026/09/23 15:16:40.731] [ info] [input:tail:tail.0] inotify_fs_add(): inode=3354850 watch_fd=5585",
+  // telegraf: уровень буквой с восклицательным знаком
+  KUBE_TS + "2026-09-22T16:15:14Z E! [outputs.yandex_monitoring] context deadline exceeded",
+  KUBE_TS + "2026/09/23 12:00:00 [error] 123#0: *1 connect() failed (111: Connection refused)",
+  KUBE_TS + "23.09.2026 15:13:40 INFO привет",
   KUBE_TS,
   "",
   "строка совсем без таймстемпа",
@@ -282,6 +289,65 @@ check("уровень в обычной строке: капс красится,
   assert.strictEqual(colorPlain("не удалось: error while reading"), "не удалось: error while reading");
   // в начале строки строчный уровень всё же узнаётся
   assert.ok(colorPlain("warn: диск кончается").includes(`\u001b[${levelColor("warn")}mwarn`));
+});
+
+check("свой таймстемп узнаётся в разных форматах и тушится целиком", () => {
+  const stamps = [
+    "2026-09-23T15:13:40.716Z",
+    "2026-09-23 15:13:40,716 +0300", // log4j, python
+    "2026/09/23 15:13:40", // Go log, nginx
+    "[2026/09/23 15:13:40.716]", // fluent-bit
+    "2026.09.23 15:13:40.716", // ClickHouse
+    "23.09.2026 15:13:40", // ru, de
+    "23/09/2026 15:13:40",
+    "09/23/2026 03:13:40 PM", // us
+    "23/Sep/2026:15:13:40 +0000", // access-лог
+    "23-Sep-2026 15:13:40.716", // tomcat
+    "Sep 23 15:13:40", // syslog
+    "[Wed Sep 23 15:13:40.123456 2026]", // error-лог apache
+    "15:13:40.716",
+  ];
+
+  for (const stamp of stamps) {
+    const painted = colorPlain(`${stamp} INFO hi`);
+
+    assert.ok(painted.startsWith(`${FAINT_START}${stamp}\u001b[0m`), `таймстемп не узнан: ${painted}`);
+    assert.ok(hasColor(painted, "INFO"), `уровень за таймстемпом ${stamp} не покрашен`);
+  }
+
+  // похожее на время, но не оно
+  assert.strictEqual(colorPlain("10:30 это не время"), "10:30 это не время");
+  assert.ok(!colorPlain("2026-09-23x").startsWith(FAINT_START));
+});
+
+check("fluent-bit: уровень с пробелом в скобках и тег плагина", () => {
+  const warn = colorPlain("[2026/09/23 09:14:12.831] [ warn] [engine] failed to flush chunk");
+  const info = colorPlain("[2026/09/23 15:16:40.731] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1 watch_fd=2");
+
+  assert.ok(hasColor(warn, "warn"), warn);
+  assert.ok(warn.includes(`\u001b[${keyColor("engine")}m[engine]`), warn);
+  // строка с парами уходит в logfmt, но шапка перед ними всё равно разбирается
+  const logfmt = colorizeLine(`${KUBE_TS}[2026/09/23 15:16:40.731] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1 watch_fd=2`);
+
+  assert.ok(hasColor(info, "info") && hasColor(logfmt, "info"), logfmt);
+  assert.ok(logfmt.includes(`\u001b[${keyColor("input:tail:tail.0")}m[input:tail:tail.0]`), logfmt);
+});
+
+check("telegraf: уровень буквой с восклицательным знаком", () => {
+  const error = colorPlain("2026-09-22T16:15:14Z E! [outputs.yandex_monitoring] context deadline exceeded");
+
+  assert.ok(error.includes(`\u001b[${levelColor("error")}mE!`), error);
+  assert.ok(error.includes(`\u001b[${keyColor("outputs.yandex_monitoring")}m[outputs.yandex_monitoring]`), error);
+  assert.ok(colorPlain("W! [agent] slow").startsWith(`\u001b[${levelColor("warn")}mW!`));
+  assert.ok(colorPlain("I! Starting Telegraf").startsWith(`\u001b[${levelColor("info")}mI!`));
+  // буква без пробела следом — это слово, а не уровень
+  assert.strictEqual(colorPlain("E!xample"), "E!xample");
+});
+
+check("уровни syslog и java.util.logging", () => {
+  assert.ok(hasColor(colorPlain("2026/09/23 12:00:00 [crit] 1#0: boom"), "crit"));
+  assert.strictEqual(levelColor("emerg"), levelColor("fatal"));
+  assert.strictEqual(levelColor("SEVERE"), levelColor("error"));
 });
 
 check("адреса находятся в тексте любого формата", () => {
