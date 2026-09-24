@@ -47,7 +47,13 @@ React-компонентов нет вовсе: страница настрое�
 kubectl logs -f my-pod | lc
 stern web | lc
 tail -f app.log | lc | less -R
+kubectl logs -f deploy/web --all-pods --all-containers | lc
 ```
+
+Префикс `[pod/…/…]` от `--all-pods`, `--all-containers` и `-l` приглушается, строка за ним
+красится как обычно. В пункте меню [crt-lens](https://github.com/Dees7/crt-lens)
+`… logs {{kind}}/{{name}} --all-pods --all-containers -f | lc | grep --line-buffered -i error`
+даёт цветной **View all logs** по всему ворклоаду; полный пример — в README своей ветки.
 
 Та же раскраска, но вне приложения. Вместе с расширением в систему ничего не ставится: `lc`
 ставят руками и так же убирают.
@@ -72,8 +78,8 @@ tail -f app.log | lc | less -R
 
 | Хост | Ссылка |
 |---|---|
-| Freelens 2.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v2.1.0/freelens-logscolor-2.1.0.tgz` |
-| Freelens 1.x, Lens 6.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v1.1.0/freelens-logscolor-1.1.0.tgz` |
+| Freelens 2.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.4/freelens-logscolor-2.0.4.tgz` |
+| Freelens 1.x, Lens 6.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.4/freelens-logscolor-1.0.4.tgz` |
 
 Ветка при установке нигде не называется — её выбирает номер релиза. Подробности, настройки,
 что именно красится и сборка из исходников — в README своей ветки.

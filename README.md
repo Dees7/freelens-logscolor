@@ -28,8 +28,8 @@ running, and follow these steps:
 
    | Host | URL |
    |---|---|
-   | Freelens 2.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v2.1.0/freelens-logscolor-2.1.0.tgz` |
-   | Freelens 1.x, Lens 6.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v1.1.0/freelens-logscolor-1.1.0.tgz` |
+   | Freelens 2.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.4/freelens-logscolor-2.0.4.tgz` |
+   | Freelens 1.x, Lens 6.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.4/freelens-logscolor-1.0.4.tgz` |
 
 3. Click on the **Install** button
 4. Make sure the extension is enabled
@@ -59,7 +59,13 @@ branch.
 ```sh
 kubectl logs -f my-pod | lc
 tail -f app.log | lc | less -R
+kubectl logs -f deploy/web --all-pods --all-containers | lc
 ```
+
+The `[pod/…/…]` prefix of `--all-pods`, `--all-containers` and `-l` is dimmed, and the line behind
+it is colored as usual. Put into a [crt-lens](https://github.com/Dees7/crt-lens) menu item,
+`… logs {{kind}}/{{name}} --all-pods --all-containers -f | lc | grep --line-buffered -i error` gives
+a colored **View all logs** of a whole workload; the full example is in the README of your branch.
 
 The same coloring, outside the app. Nothing is installed together with the extension: you
 install `lc` yourself and remove it the same way.
