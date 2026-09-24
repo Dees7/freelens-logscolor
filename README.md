@@ -153,7 +153,7 @@ the `[pod/…/…]` prefix dimmed:
   title: "logs {{name}}"
   input:
     label: "The filter is appended to the command"
-    default: "| lc | grep -C 5 --line-buffered -i error"
+    default: "| grep -C 5 --line-buffered -i error | lc"
   cmd: >-
     {{kubectl}} --kubeconfig "{{kubeconfig}}" --context {{context}}
     -n {{namespace}} logs {{kind}}/{{name}}
@@ -163,10 +163,10 @@ the `[pod/…/…]` prefix dimmed:
 
 The input field holds the tail of the pipe, so the filter can be changed before the run.
 
-- Put `lc` **before** `grep`, not after it. `grep --color=always` wraps the match in escape codes,
-  and a JSON line with them inside is no longer JSON: `lc` would color only its prefix.
-- After `lc`, `grep` searches the colored text. A word is found as usual, but a pattern across a
-  color boundary is not: `level=error` has escape codes between `level`, `=` and `error`.
+- `grep` goes before `lc`: it searches the original text, so any pattern works, `level=error`
+  included, and `lc` colors whatever gets through.
+- Do not add `--color=always` to `grep`: its escape codes inside a JSON line make it no longer
+  JSON, and `lc` would color only the prefix.
 - Keep `--line-buffered` on `grep`, or `-f` stalls in its buffer. `lc` itself writes every line
   as soon as it arrives.
 
