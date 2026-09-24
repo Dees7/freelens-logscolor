@@ -25,9 +25,20 @@ export const Main = api.Main;
 export const Renderer = api.Renderer;
 `;
 
+// React тоже хостовый: страница настроек должна рендериться тем же React, что
+// и приложение, — второй экземпляр в одном дереве ломает хуки
+//
+// Хост без React (такого 1.x не встречалось, но загрузка не должна падать из-за
+// страницы настроек) даёт undefined: страница тогда просто не регистрируется.
+const hostReact = `const React = globalThis.React;
+export default React;
+export const useState = React?.useState;
+`;
+
 const hostProvidedModules = {
   "@freelensapp/extensions": hostApi,
   "@k8slens/extensions": hostApi,
+  react: hostReact,
 };
 
 const virtualPrefix = "\0freelens-host:";
@@ -53,13 +64,22 @@ const nodeBuiltins = ["fs", "os", "path", "node:fs", "node:os", "node:path"];
 
 export default defineConfig({
   plugins: [hostProvidedModulesPlugin],
+  // классический JSX: `React.createElement` из того `React`, что импортирован
+  // в файле, то есть из хостового. Автоматический потянул бы react/jsx-runtime
+  esbuild: {
+    jsx: "transform",
+    jsxFactory: "React.createElement",
+    jsxFragment: "React.Fragment",
+  },
   build: {
     // 1.10.3 живёт на electron 41, но ветка обслуживает всю линейку 1.x и Lens
     // 6.x, где Chromium заметно старше; es2020 переживут они все
     target: "es2020",
     minify: false,
     sourcemap: true,
-    emptyOutDir: true,
+    // не чистим: рядом лежит dist/lc.js второго прохода (vite.lc.config.mjs),
+    // и `npm start` снёс бы его; `npm run build` и так начинается с clean
+    emptyOutDir: false,
     lib: {
       entry: "src/renderer.ts",
       formats: ["cjs"],

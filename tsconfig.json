@@ -15,6 +15,7 @@
     "useDefineForClassFields": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "jsx": "react",
     "types": ["node"],
     "paths": {
       // @freelensapp/extensions 1.10.3 на npm есть, но его d.ts — семь строк

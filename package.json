@@ -11,6 +11,7 @@
   "renderer": "dist/renderer.js",
   "files": [
     "dist/renderer.js",
+    "dist/lc.js",
     "README.md",
     "logscolor.png"
   ],
@@ -30,7 +31,7 @@
     "ansi"
   ],
   "scripts": {
-    "build": "npm run clean && vite build",
+    "build": "npm run clean && vite build && vite build -c vite.lc.config.mjs",
     "clean": "rm -rf ./dist",
     "start": "vite build --watch",
     "test": "vitest run",
