@@ -47,6 +47,7 @@ Open the logs of any pod — the lines are colored as they arrive:
 | the level field (`level`, `lvl`, `severity`, `levelname`, `log.level`, `severity_text`, `@level` and more — see below) | colored by level: ERROR red, WARN yellow, INFO green, DEBUG magenta, FATAL bright red |
 | logfmt (`key=value`) | the same, by key and by value type |
 | klog (`I0918 13:00:33.350123 1 controller.go:42]`) | the level letter is colored, the rest of the header is grey |
+| the source prefix of `kubectl logs --prefix`, which `--all-pods`, `--all-containers` and `-l` also add (`[pod/web-7f9/nginx] `) | grey; the rest of the line is taken apart as if there were no prefix |
 | a timestamp of the line's own at its start: ISO, `2026/09/23 15:13:40` (Go, nginx, fluent-bit), `2026.09.23` (ClickHouse), `23.09.2026`, `09/23/2026 03:13:40 PM`, `23/Sep/2026:15:13:40 +0000`, `Sep 23 15:13:40`, a bare `15:13:40.716`, bracketed or not | grey |
 | the level right after it: a word (`[ warn]`, `[error]`, `[crit]`, `SEVERE`) or a Telegraf letter (`I!`, `W!`, `E!`) | colored by level |
 | the component tag after the level (`[engine]`, `[input:tail:tail.0]`, `[outputs.yandex_monitoring]`) | colored by its name, like a key |
@@ -123,7 +124,13 @@ The same coloring works outside the app:
 ```sh
 kubectl logs -f my-pod | lc
 tail -f app.log | lc | less -R
+kubectl logs -f deploy/web --all-pods --all-containers | lc
 ```
+
+Lines from several pods and containers come with a `[pod/<pod>/<container>] ` prefix in front.
+The prefix is dimmed, and the JSON, logfmt or klog behind it is colored as usual. Only a prefix
+with two slashes counts, so `[INFO]`, `[engine]` and other brackets at the start of a message are
+not mistaken for it. The log viewer in the app never shows such a prefix, so this is for `lc`.
 
 Installing the extension puts nothing into your system. To get the command, open
 **Preferences → Extensions → freelens-logscolor** and click **Install lc**; **Remove lc** next
