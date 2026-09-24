@@ -107,7 +107,7 @@ AnsiUp 6 его понимает. Это единственное место, г
 2. Вставить ссылку на артефакт релиза под Freelens 1.x и Lens 6.x:
 
    ```
-   https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.3/freelens-logscolor-1.0.3.tgz
+   https://github.com/Dees7/freelens-logscolor/releases/download/v1.1.0/freelens-logscolor-1.1.0.tgz
    ```
 
 3. Нажать **Install**
