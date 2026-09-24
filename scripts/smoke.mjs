@@ -129,6 +129,14 @@ assert.ok(fs.existsSync(lc), "lc не вернулся после включен
 render();
 buttons.get("Remove lc").onClick();
 assert.ok(!fs.existsSync(lc), "кнопка не убрала lc");
+
+// то же из палитры команд — ей React не нужен
+const command = (id) => extension.commands.find((each) => each.id === id);
+
+command("logscolor-install-lc").action();
+assert.ok(fs.existsSync(lc), "команда палитры не поставила lc");
+command("logscolor-remove-lc").action();
+assert.ok(!fs.existsSync(lc), "команда палитры не убрала lc");
 extension.onActivate();
 assert.ok(!fs.existsSync(lc), "lc вернулся после того, как его убрали");
 

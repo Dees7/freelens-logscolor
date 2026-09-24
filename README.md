@@ -128,17 +128,21 @@ tail -f app.log | lc | less -R
 Installing the extension puts nothing into your system. To get the command, open
 **Preferences → Extensions → freelens-logscolor** and click **Install lc**; **Remove lc** next
 to it takes it away. The page shows where the command is and why it cannot be installed, if it
-cannot.
+cannot. The same two actions are in the command palette (Cmd+Shift+P): *Logs color: install the
+lc terminal command* and *Logs color: remove the lc terminal command*.
 
-`lc` is a small shell script put into the first writable directory on your PATH out of
-`~/.local/bin`, `~/bin`, `/opt/homebrew/bin`, `/usr/local/bin`. It runs `dist/lc.js` of the
-installed extension with `node`, or with the app's own binary if there is no `node` on PATH, so it
-is upgraded together with the extension.
+`lc` needs [Node.js](https://nodejs.org) on your PATH: without `node` it is not installed at all.
+It is a small shell script put into the first writable directory on your PATH out of
+`~/.local/bin`, `~/bin`, `/opt/homebrew/bin`, `/usr/local/bin`, and it runs `dist/lc.js` of the
+installed extension with `node` — so it is upgraded together with the extension and does not
+depend on where or how the app itself is installed.
 
 - Disabling or uninstalling the extension removes `lc` as well; enabling it again brings `lc`
   back, if you had installed it. The choice is kept as `"cli": true` in
   `freelens-logscolor.json`.
 - An `lc` that is already on your PATH and is not ours is left alone, and ours is not installed.
+- If `node` or the extension disappears later, `lc` passes logs through unchanged and says why on
+  stderr, so a pipe never breaks.
 - Not available on Windows.
 
 ## Upgrading

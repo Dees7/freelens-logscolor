@@ -12,7 +12,7 @@ import * as path from "path";
 import { test as check } from "vitest";
 
 import { config, configPath, setConfig } from "./config";
-import { inspect, MARK, NAME, remove, wrapper, write } from "./cli";
+import { describe, inspect, MARK, NAME, remove, wrapper, write } from "./cli";
 
 function sandbox(...names: string[]): string[] {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "logscolor-cli-"));
@@ -26,15 +26,23 @@ function sandbox(...names: string[]): string[] {
   });
 }
 
-const CONTENT = wrapper("/nowhere/lc.js", undefined);
+const CONTENT = wrapper("/nowhere/lc.js");
+
+/** Каталог настоящего node: без node в PATH команда не ставится, а в песочнице его нет. */
+const NODE_DIR = path.dirname(process.execPath);
 
 check("ставится в первый предпочтительный каталог из PATH", () => {
   const [a, b, c] = sandbox("a", "b", "c");
 
   // c предпочтительнее, но его нет в PATH
-  const dirs = { pathDirs: [a, b], preferred: [c, b, a] };
+  const dirs = { pathDirs: [a, b, NODE_DIR], preferred: [c, b, a] };
 
-  assert.deepStrictEqual(inspect(dirs), { ours: [], foreign: undefined, target: path.join(b, NAME) });
+  assert.deepStrictEqual(inspect(dirs), {
+    ours: [],
+    foreign: undefined,
+    target: path.join(b, NAME),
+    node: path.join(NODE_DIR, "node"),
+  });
   assert.strictEqual(write(dirs, CONTENT), path.join(b, NAME));
   assert.strictEqual(fs.readFileSync(path.join(b, NAME), "utf8"), CONTENT);
   assert.ok(fs.statSync(path.join(b, NAME)).mode & 0o100, "файл не исполняемый");
@@ -44,12 +52,12 @@ check("ставится в первый предпочтительный кат�
 
 check("свой файл обновляется на месте, второй копии не заводится", () => {
   const [a, b] = sandbox("a", "b");
-  const dirs = { pathDirs: [a, b], preferred: [b, a] };
+  const dirs = { pathDirs: [a, b, NODE_DIR], preferred: [b, a] };
 
   write(dirs, CONTENT);
   fs.renameSync(path.join(b, NAME), path.join(a, NAME));
 
-  const next = wrapper("/elsewhere/lc.js", undefined);
+  const next = wrapper("/elsewhere/lc.js");
 
   assert.strictEqual(write(dirs, next), path.join(a, NAME));
   assert.strictEqual(fs.readFileSync(path.join(a, NAME), "utf8"), next);
@@ -59,7 +67,7 @@ check("свой файл обновляется на месте, второй к
 check("чужой lc в PATH — не ставим и не трогаем", () => {
   const [a, b] = sandbox("a", "b");
   const foreign = path.join(b, NAME);
-  const dirs = { pathDirs: [a, b], preferred: [a] };
+  const dirs = { pathDirs: [a, b, NODE_DIR], preferred: [a] };
 
   fs.writeFileSync(foreign, "#!/bin/sh\necho mine\n");
 
@@ -73,7 +81,7 @@ check("чужой lc в PATH — не ставим и не трогаем", () =
 check("удаление убирает свой файл и оставляет чужой", () => {
   const [a, b] = sandbox("a", "b");
 
-  write({ pathDirs: [a], preferred: [a] }, CONTENT);
+  write({ pathDirs: [a, NODE_DIR], preferred: [a] }, CONTENT);
   fs.writeFileSync(path.join(b, NAME), "#!/bin/sh\n");
 
   assert.deepStrictEqual(remove({ pathDirs: [a, b], preferred: [a] }), [path.join(a, NAME)]);
@@ -83,10 +91,24 @@ check("удаление убирает свой файл и оставляет �
 
 check("некуда писать — так и говорим", () => {
   const [a] = sandbox("a");
-  const dirs = { pathDirs: [a], preferred: ["/definitely/not/here"] };
+  const dirs = { pathDirs: [a, NODE_DIR], preferred: ["/definitely/not/here"] };
 
   assert.strictEqual(inspect(dirs).target, undefined);
   assert.throws(() => write(dirs, CONTENT), /is on PATH and writable/);
+});
+
+check("без node в PATH не ставим: обёртке нечем запускать lc.js", () => {
+  const [a] = sandbox("a");
+  const dirs = { pathDirs: [a], preferred: [a] };
+
+  assert.strictEqual(inspect(dirs).node, undefined);
+  assert.throws(() => write(dirs, CONTENT), /node is not on PATH/);
+  assert.ok(!fs.existsSync(path.join(a, NAME)));
+  assert.match(describe(inspect(dirs)), /node is not on PATH/);
+
+  // node без права на запуск — тоже не node
+  fs.writeFileSync(path.join(a, "node"), "", { mode: 0o644 });
+  assert.strictEqual(inspect(dirs).node, undefined);
 });
 
 check("настройка: cli по умолчанию выключен, запись не теряет чужих ключей, битый файл не трогается", () => {
@@ -122,13 +144,13 @@ check("обёртка: метка на месте, пути с кавычкам�
 
   fs.writeFileSync(script, 'process.stdin.pipe(process.stdout); console.error("ran");\n');
 
-  const text = wrapper(script, "/no/such/host");
+  const text = wrapper(script);
   const file = path.join(dir, NAME);
 
   assert.ok(text.split("\n")[1].startsWith(MARK));
   fs.writeFileSync(file, text, { mode: 0o755 });
 
-  // node в PATH есть (тесты им и запущены) — значит, до host дело не дойдёт
+  // node в PATH есть — тесты им и запущены
   assert.strictEqual(execFileSync(file, { input: "hello\n" }).toString(), "hello\n");
 });
 
@@ -136,9 +158,26 @@ check("обёртка без расширения пропускает логи 
   const [dir] = sandbox("x");
   const file = path.join(dir, NAME);
 
-  fs.writeFileSync(file, wrapper(path.join(dir, "gone.js"), undefined), { mode: 0o755 });
+  fs.writeFileSync(file, wrapper(path.join(dir, "gone.js")), { mode: 0o755 });
 
   const out = execFileSync(file, { input: "as is\n", stdio: ["pipe", "pipe", "ignore"] });
+
+  assert.strictEqual(out.toString(), "as is\n");
+});
+
+check("обёртка без node пропускает логи как есть", () => {
+  const [dir] = sandbox("y");
+  const script = path.join(dir, "lc.js");
+  const file = path.join(dir, NAME);
+
+  fs.writeFileSync(script, "");
+  fs.writeFileSync(file, wrapper(script), { mode: 0o755 });
+
+  const out = execFileSync(file, {
+    input: "as is\n",
+    stdio: ["pipe", "pipe", "ignore"],
+    env: { PATH: "/usr/bin:/bin" },
+  });
 
   assert.strictEqual(out.toString(), "as is\n");
 });

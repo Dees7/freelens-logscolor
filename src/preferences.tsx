@@ -1,6 +1,7 @@
 /**
  * Страница расширения в Preferences → Extensions: кнопки «поставить» и
- * «убрать» для команды `lc` (сама установка — в `cli.ts`).
+ * «убрать» для команды `lc` (сама установка — в `cli.ts`, те же действия есть
+ * в палитре команд — `commands.ts`).
  *
  * React свой не везём: Freelens 1.x и Lens 6.x кладут свой на
  * `globalThis.React` рядом с `LensExtensions`, и компоненты должны работать
@@ -8,36 +9,18 @@
  * `react` в сборке подменяется глобалом (см. `vite.config.mjs`), а отсюда
  * берутся только типы. Кнопки — хостовые, из `Renderer.Component`, чтобы
  * страница выглядела как соседние.
+ *
+ * Этот файл — второе место, где ветки расходятся: в `v2` страница без React,
+ * одним текстом, потому что ванильный Freelens 2.x React расширениям не отдаёт.
  */
 import { Renderer } from "@freelensapp/extensions";
 import React, { useState } from "react";
 
-import { type CliState, inspect, installCli, NAME, removeCli, supported, systemDirs } from "./cli";
-
-const { Button, Notifications } = Renderer.Component;
-
-/** Путь с `~` вместо домашнего каталога — короче и не светит имя пользователя на скриншоте. */
-function tilde(file: string): string {
-  const home = process.env.HOME;
-
-  return home && file.startsWith(`${home}/`) ? `~${file.slice(home.length)}` : file;
-}
-
-function describe({ ours, foreign, target }: CliState): string {
-  if (ours.length > 0) return `Installed: ${ours.map(tilde).join(", ")}`;
-
-  if (foreign) return `Cannot install: ${tilde(foreign)} already exists and is not ours.`;
-
-  if (target) return `Not installed. It will be put at ${tilde(target)}.`;
-
-  return "Cannot install: none of ~/.local/bin, ~/bin, /opt/homebrew/bin, /usr/local/bin is on PATH and writable.";
-}
-
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
+import { install, notify, uninstall } from "./commands";
+import { describe, inspect, NAME, supported, systemDirs } from "./cli";
 
 export function CliInput() {
+  const { Button } = Renderer.Component;
   // состояние файла живёт на диске, а не в React: перечитываем после каждого действия
   const [, rerender] = useState(0);
 
@@ -47,12 +30,7 @@ export function CliInput() {
   const installed = state.ours.length > 0;
 
   const run = (action: () => string) => () => {
-    try {
-      Notifications.ok(action());
-    } catch (error) {
-      Notifications.error(`${NAME}: ${message(error)}`);
-    }
-
+    notify(action);
     rerender((n) => n + 1);
   };
 
@@ -63,14 +41,10 @@ export function CliInput() {
         <Button
           primary
           label={installed ? `Reinstall ${NAME}` : `Install ${NAME}`}
-          disabled={!installed && (!!state.foreign || !state.target)}
-          onClick={run(() => `${NAME} installed: ${tilde(installCli())}`)}
+          disabled={!installed && (!!state.foreign || !state.target || !state.node)}
+          onClick={run(install)}
         />
-        <Button
-          label={`Remove ${NAME}`}
-          disabled={!installed}
-          onClick={run(() => `${NAME} removed: ${removeCli().map(tilde).join(", ")}`)}
-        />
+        <Button label={`Remove ${NAME}`} disabled={!installed} onClick={run(uninstall)} />
       </div>
     </div>
   );
@@ -80,15 +54,16 @@ export function CliHint() {
   return (
     <span>
       <code>{NAME}</code> colors your own logs in any terminal the same way: <code>kubectl logs -f pod | {NAME}</code>.
-      Nothing is installed together with the extension; the command is removed when the extension is disabled or
-      uninstalled, and comes back when it is enabled again.
+      It needs <code>node</code> on PATH. Nothing is installed together with the extension; the command is removed when
+      the extension is disabled or uninstalled, and comes back when it is enabled again. The same actions are in the
+      command palette.
     </span>
   );
 }
 
 /**
  * Регистрация для `appPreferences`. Хост не отдал React — страницы нет вовсе:
- * отрисовать её нечем, а раскраска логов от неё не зависит.
+ * отрисовать её нечем, а поставить `lc` можно и из палитры команд.
  */
 export const preferences = React
   ? [
