@@ -1,20 +1,17 @@
 /**
- * Настройка расширения: один файл, один ключ, никаких зависимостей.
+ * Настройка расширения: один файл, два ключа, никаких зависимостей.
  *
- * Расширение по умолчанию **включено** — оно ровно для этого и ставится.
- * Файл нужен только чтобы выключить раскраску, не удаляя расширение:
+ * Раскраска по умолчанию **включена** — расширение ровно для этого и ставится.
+ * Команда `lc` по умолчанию **не ставится**: её ставят и убирают кнопкой на
+ * странице настроек (`preferences.tsx`), и туда же пишется выбор:
  *
  * ```json
- * { "enabled": false }
+ * { "enabled": false, "cli": true }
  * ```
  *
- * Читается на каждый ответ `getLogs`, поэтому правка действует сразу, без
- * перезапуска окна. Чтение дешёвое: `statSync` + разбор только при изменении
- * файла, а логи приходят пачками, а не построчно.
- *
- * Своей панели настроек у расширения нет намеренно: она потребовала бы React,
- * а значит и хост, который отдаёт свой React расширениям. Без неё расширение
- * обходится одним `@freelensapp/extensions` и работает на ванильной сборке.
+ * Читается на каждый ответ `getLogs`, поэтому правка `enabled` действует
+ * сразу, без перезапуска окна. Чтение дешёвое: `statSync` + разбор только при
+ * изменении файла, а логи приходят пачками, а не построчно.
  */
 import * as fs from "fs";
 import * as os from "os";
@@ -38,9 +35,11 @@ export function configPath(): string {
 
 interface Config {
   enabled: boolean;
+  /** Пользователь поставил команду `lc` и её надо держать в PATH (см. `cli.ts`). */
+  cli: boolean;
 }
 
-const DEFAULT: Config = { enabled: true };
+const DEFAULT: Config = { enabled: true, cli: false };
 
 let cache: { mtimeMs: number; size: number; config: Config } | undefined;
 
@@ -70,7 +69,9 @@ export function config(): Config {
   try {
     const raw: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
 
-    parsed = { enabled: (raw as Partial<Config> | null)?.enabled !== false };
+    const given = raw as Partial<Config> | null;
+
+    parsed = { enabled: given?.enabled !== false, cli: given?.cli === true };
   } catch (error) {
     console.warn(`[logscolor] could not parse ${file}, keeping the previous setting:`, error);
 
@@ -84,4 +85,32 @@ export function config(): Config {
 
 export function enabled(): boolean {
   return config().enabled;
+}
+
+/**
+ * Записать часть настройки, не трогая остального в файле — в том числе ключей,
+ * которых мы не знаем. Файла ещё нет — он появится там, где у приложения уже
+ * есть каталог: у Lens это `~/.k8slens`, а не `~/.freelens`.
+ */
+export function setConfig(patch: Partial<Config>): void {
+  let file = configPath();
+
+  if (!fs.existsSync(file)) {
+    const home = HOMES.map((dir) => path.join(os.homedir(), dir)).find((dir) => fs.existsSync(dir));
+
+    file = path.join(home ?? path.join(os.homedir(), HOMES[0]), FILE);
+  }
+
+  let current: Record<string, unknown> = {};
+
+  // битый файл не перезаписываем: в нём чья-то недописанная правка
+  if (fs.existsSync(file)) {
+    const raw: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
+
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) current = raw as Record<string, unknown>;
+  }
+
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify({ ...current, ...patch }, null, 2) + "\n");
+  cache = undefined;
 }

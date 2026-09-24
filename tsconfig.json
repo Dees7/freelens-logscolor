@@ -14,6 +14,7 @@
     "useDefineForClassFields": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "jsx": "react",
     "types": ["node"],
     "paths": {
       // @freelensapp/extensions 2.x на npm не опубликован (последняя там 1.10.3),
