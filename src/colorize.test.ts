@@ -95,6 +95,30 @@ check("кубовый таймстемп остаётся в начале стр
   }
 });
 
+check("префикс kubectl --prefix / --all-pods не мешает разбору сообщения", () => {
+  const source = "[pod/jaeger-agent-8ft2z/jaeger-agent] ";
+  const json = '{"level":"info","ts":1790236970.33,"caller":"grpc/builder.go:124","msg":"ok"}';
+  const logfmt = 'level=warn msg="node is flapping" pid=142727';
+  const plain = "просто строка";
+
+  for (const line of [source + json, source + KUBE_TS + json, source + logfmt, source + plain, source]) {
+    const painted = colorizeLine(line);
+
+    assert.strictEqual(stripAnsi(painted), line, `сломалась строка: ${line}`);
+    assert.ok(painted.startsWith(FAINT_START + source), `префикс не притушен: ${painted}`);
+  }
+
+  // таймстемп после префикса не красится, json и logfmt узнаются как без префикса
+  assert.ok(colorizeLine(source + KUBE_TS + json).includes(`m${source}\u001b[0m${KUBE_TS}\u001b[`));
+  assert.ok(hasColor(colorizeLine(source + json), '"info"'), "json за префиксом не раскрашен");
+  assert.ok(hasColor(colorizeLine(source + logfmt), "warn"), "logfmt за префиксом не раскрашен");
+
+  // обычные скобки в начале сообщения — не префикс kubectl
+  for (const line of ["[INFO] диск кончается", "[engine] failed to flush", "[a/b] c"]) {
+    assert.ok(!colorizeLine(line).startsWith(FAINT_START + line.slice(0, line.indexOf("]") + 2)), line);
+  }
+});
+
 /**
  * Покрашен ли кусок текста: перед ним стоит открывающий цвет, а не сброс.
  *

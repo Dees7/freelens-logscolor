@@ -141,6 +141,15 @@ export function keyColor(name: string): Color {
 const KUBE_TIMESTAMP = /^(\d{4}-\d{2}-\d{2}T[\d:.]+(?:Z|[+-]\d{2}:?\d{2}) )([\s\S]*)$/;
 
 /**
+ * Префикс `kubectl logs --prefix` (его же ставят `--all-pods`, `--all-containers`
+ * и `-l`): `[pod/<под>/<контейнер>] `, перед кубовым таймстемпом, если он есть.
+ *
+ * Узнаётся только с двумя слешами: `[INFO]`, `[engine]` и прочие скобки в начале
+ * самого сообщения — не он. В панели логов Freelens его не бывает, это для `lc`.
+ */
+const KUBECTL_PREFIX = /^(\[[\w.-]+\/[^\s/\]]+\/[^\s/\]]+\] )([\s\S]*)$/;
+
+/**
  * Таймстемп в начале самого сообщения — этот уже можно притушить.
  *
  * Форматов много, и каждый живой: логгер пишет так, как принято в его языке и
@@ -417,11 +426,13 @@ export function colorizeLine(line: string): string {
   if (line === "" || line.length > MAX_LINE) return line;
 
   try {
-    const match = KUBE_TIMESTAMP.exec(line);
+    const source = KUBECTL_PREFIX.exec(line);
+    const afterSource = source ? source[2] : line;
+    const match = KUBE_TIMESTAMP.exec(afterSource);
     const prefix = match ? match[1] : "";
-    const rest = match ? match[2] : line;
+    const rest = match ? match[2] : afterSource;
 
-    return prefix + colorizeMessage(rest);
+    return (source ? paint(C.faint, source[1]) : "") + prefix + colorizeMessage(rest);
   } catch (error) {
     // цвет — не повод потерять строку лога
     console.warn("[logscolor] could not colorize a log line:", error);
