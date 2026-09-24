@@ -2,8 +2,8 @@
 
 A [Freelens](https://github.com/freelensapp/freelens) extension that colorizes pod logs in the
 **built-in** log viewer — the one the **Logs** button opens. That is all it does in the app: no extra
-menu items, no extra columns. Its one preferences page installs, on request, the `lc` command
-that colors your own logs in a terminal.
+menu items, no extra columns. On request it also installs the `lc` command that colors your own
+logs in a terminal.
 
 > This is the branch for Freelens 2.x. For Freelens 1.x and Lens 6.x use [`v1`](../../tree/v1),
 > the overview of both is in [`main`](../../tree/main).
@@ -125,29 +125,29 @@ kubectl logs -f my-pod | lc
 tail -f app.log | lc | less -R
 ```
 
-Installing the extension puts nothing into your system. To get the command, open
-**Preferences → Extensions → freelens-logscolor** and click **Install lc**; **Remove lc** next
-to it takes it away. The page shows where the command is and why it cannot be installed, if it
-cannot.
+Installing the extension puts nothing into your system. The command is installed and removed
+from the command palette (Cmd+Shift+P): *Logs color: install the lc terminal command* and *Logs
+color: remove the lc terminal command*. **Preferences → Extensions → freelens-logscolor** shows
+where the command is and why it cannot be installed, if it cannot.
 
-`lc` is a small shell script put into the first writable directory on your PATH out of
-`~/.local/bin`, `~/bin`, `/opt/homebrew/bin`, `/usr/local/bin`. It runs `dist/lc.js` of the
-installed extension with `node`, or with the app's own binary if there is no `node` on PATH, so it
-is upgraded together with the extension.
+`lc` needs [Node.js](https://nodejs.org) on your PATH: without `node` it is not installed at all.
+It is a small shell script put into the first writable directory on your PATH out of
+`~/.local/bin`, `~/bin`, `/opt/homebrew/bin`, `/usr/local/bin`, and it runs `dist/lc.js` of the
+installed extension with `node` — so it is upgraded together with the extension and does not
+depend on where or how the app itself is installed.
 
 - Disabling or uninstalling the extension removes `lc` as well; enabling it again brings `lc`
   back, if you had installed it. The choice is kept as `"cli": true` in
   `freelens-logscolor.json`.
 - An `lc` that is already on your PATH and is not ours is left alone, and ours is not installed.
+- If `node` or the extension disappears later, `lc` passes logs through unchanged and says why on
+  stderr, so a pipe never breaks.
 - Not available on Windows.
 
-**The page needs React from the app.** Upstream Freelens 2.x does not share React with
-extensions yet: `globalThis.FreelensExtensionApi` holds only `Common` and `Renderer`. On such a
-build the page is simply not there, while log coloring works as before. The page appears on a
-build that also puts `React` there (the host side of the extension contract that the
-`fixture-extension` in the Freelens repository already assumes). Without the page, `lc` can be
-installed by hand: put `"cli": true` into `~/.freelens/freelens-logscolor.json` and restart the
-app.
+Why the palette and not buttons: vanilla Freelens 2.x does not share React with extensions
+(`globalThis.FreelensExtensionApi` holds only `Common` and `Renderer`), and a React of the
+extension's own would be a second copy in the app's tree. The extension has no React
+components at all — the preferences page is plain text — so it works on a vanilla build.
 
 ## Upgrading
 

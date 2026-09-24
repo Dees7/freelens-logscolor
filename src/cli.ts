@@ -11,8 +11,9 @@
  *
  * Кладётся не сам бандл, а короткий sh-скрипт, который зовёт `dist/lc.js` из
  * установленного расширения: так обновление расширения обновляет и `lc`.
- * Интерпретатор — `node` из PATH, а если его нет — бинарник самого приложения
- * с `ELECTRON_RUN_AS_NODE`: Node в нём уже есть.
+ * Интерпретатор — `node` из PATH, и только он: без `node` команда не ставится.
+ * Бинарник самого приложения с `ELECTRON_RUN_AS_NODE` мог бы его заменить, но
+ * тогда `lc` зависел бы от того, где лежит и чем собран Freelens.
  *
  * Чужое не трогаем: если `lc` уже есть где-то в PATH и он не наш, команда не
  * ставится. Свой файл узнаём по метке во второй строке.
@@ -43,12 +44,11 @@ function shQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
-/** Текст обёртки. `host` — бинарник приложения на случай, когда `node` в PATH нет. */
-export function wrapper(script: string, host: string | undefined): string {
-  const fallback = host
-    ? `ELECTRON_RUN_AS_NODE=1 exec ${shQuote(host)} "$script" "$@"`
-    : `echo "lc: node is not in PATH, passing logs through as is" >&2\nexec cat`;
-
+/**
+ * Текст обёртки. Любая поломка — пропала `node` или само расширение — не рвёт
+ * трубу: логи идут дальше как есть, а причина пишется в stderr.
+ */
+export function wrapper(script: string): string {
   return `#!/bin/sh
 ${MARK} — colorizes logs from stdin: kubectl logs -f pod | lc
 # Installed from the extension's preferences page and removed from there, or
@@ -58,37 +58,27 @@ if [ ! -f "$script" ]; then
   echo "lc: freelens-logscolor is not installed anymore, passing logs through as is" >&2
   exec cat
 fi
-if command -v node >/dev/null 2>&1; then
-  exec node "$script" "$@"
+if ! command -v node >/dev/null 2>&1; then
+  echo "lc: node is not on PATH, passing logs through as is" >&2
+  exec cat
 fi
-${fallback}
+exec node "$script" "$@"
 `;
-}
-
-/**
- * Бинарник приложения, которое нас загрузило.
- *
- * В рендерере `process.execPath` на macOS — это хелпер внутри бандла
- * (`Freelens.app/Contents/Frameworks/Freelens Helper (Renderer).app/…`), а нужен
- * главный бинарник из `Contents/MacOS` внешнего бандла. На Linux рендерер
- * запущен тем же бинарником, что и приложение.
- */
-export function hostBinary(execPath = process.execPath): string | undefined {
-  if (process.platform !== "darwin") return execPath;
-
-  const at = execPath.indexOf(".app/Contents/");
-
-  if (at < 0) return undefined;
-
-  const macos = path.join(execPath.slice(0, at + ".app".length), "Contents", "MacOS");
-  const [binary] = fs.readdirSync(macos);
-
-  return binary ? path.join(macos, binary) : undefined;
 }
 
 function isOurs(file: string): boolean {
   try {
     return fs.readFileSync(file, "utf8").slice(0, 256).includes(MARK);
+  } catch {
+    return false;
+  }
+}
+
+function executable(file: string): boolean {
+  try {
+    fs.accessSync(file, fs.constants.X_OK);
+
+    return fs.statSync(file).isFile();
   } catch {
     return false;
   }
@@ -120,6 +110,8 @@ export interface CliState {
   foreign?: string;
   /** Куда встанет (или уже стоит) наш файл; нет — значит, некуда. */
   target?: string;
+  /** `node` из PATH, которым обёртка запустит `lc.js`; нет — ставить нельзя. */
+  node?: string;
 }
 
 export function inspect({ pathDirs, preferred }: Dirs): CliState {
@@ -127,8 +119,29 @@ export function inspect({ pathDirs, preferred }: Dirs): CliState {
   const ours = present.filter(isOurs);
   const foreign = present.find((file) => !isOurs(file));
   const dir = preferred.filter((candidate) => pathDirs.includes(candidate)).find(writable);
+  const node = pathDirs.map((each) => path.join(each, "node")).find(executable);
 
-  return { ours, foreign, target: ours[0] ?? (dir && path.join(dir, NAME)) };
+  return { ours, foreign, target: ours[0] ?? (dir && path.join(dir, NAME)), node };
+}
+
+/** Состояние одной строкой — для страницы настроек. */
+export function describe({ ours, foreign, target, node }: CliState, show = tilde): string {
+  if (ours.length > 0) return `Installed: ${ours.map(show).join(", ")}`;
+
+  if (foreign) return `Cannot install: ${show(foreign)} already exists and is not ours.`;
+
+  if (!node) return "Cannot install: node is not on PATH. Install Node.js first.";
+
+  if (target) return `Not installed. It will be put at ${show(target)}.`;
+
+  return "Cannot install: none of ~/.local/bin, ~/bin, /opt/homebrew/bin, /usr/local/bin is on PATH and writable.";
+}
+
+/** Путь с `~` вместо домашнего каталога — короче и не светит имя пользователя на скриншоте. */
+export function tilde(file: string): string {
+  const home = os.homedir();
+
+  return file.startsWith(`${home}/`) ? `~${file.slice(home.length)}` : file;
 }
 
 /**
@@ -136,9 +149,11 @@ export function inspect({ pathDirs, preferred }: Dirs): CliState {
  * бросает с причиной, которую страница настроек покажет как есть.
  */
 export function write(dirs: Dirs, content: string): string {
-  const { foreign, target } = inspect(dirs);
+  const { foreign, target, node } = inspect(dirs);
 
   if (foreign) throw new Error(`${foreign} already exists and does not belong to this extension`);
+
+  if (!node) throw new Error("node is not on PATH: lc runs on Node.js, install it first");
 
   if (!target) throw new Error(`none of ${dirs.preferred.join(", ")} is on PATH and writable`);
 
@@ -182,7 +197,7 @@ function bundleDir(): string {
 }
 
 function content(): string {
-  return wrapper(path.join(bundleDir(), "lc.js"), hostBinary());
+  return wrapper(path.join(bundleDir(), "lc.js"));
 }
 
 /** Команда для этой ОС вообще возможна: sh-скрипт на Windows не запустится. */

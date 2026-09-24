@@ -5,10 +5,10 @@
 // читает его оттуда. Бандлить сам пакет нельзя: внутри он тянет половину
 // приложения.
 //
-// React нужен только странице настроек (команда `lc`) и берётся с того же
-// глобала: второй экземпляр React в одном дереве ломает хуки. Ванильный
-// Freelens 2.x React туда не кладёт — тогда `React` здесь undefined, страница
-// не регистрируется, а раскраске логов хватает одного `Renderer`.
+// React, mobx и прочие синглтоны хоста здесь не нужны: у расширения нет ни
+// одного React-компонента (страница настроек отдаёт строки, см.
+// src/preferences.ts). Именно поэтому оно работает на ванильном Freelens 2.x —
+// из того, что хост публикует на глобале, ему хватает `Renderer`.
 //
 // Именованные экспорты ниже перечислены руками намеренно: импорт, которого тут
 // нет, роняет сборку с «is not exported by», а не утаскивает вторую копию
@@ -23,10 +23,6 @@ const hostProvidedModules = {
 export const Common = api.Common;
 export const Main = api.Main;
 export const Renderer = api.Renderer;
-`,
-  react: `const React = ${HOST_GLOBAL}.React;
-export default React;
-export const useState = React?.useState;
 `,
 };
 
@@ -53,13 +49,6 @@ const nodeBuiltins = ["fs", "os", "path", "url", "node:fs", "node:os", "node:pat
 
 export default defineConfig({
   plugins: [hostProvidedModulesPlugin],
-  // классический JSX: `React.createElement` из того `React`, что импортирован
-  // в файле, то есть из хостового. Автоматический потянул бы react/jsx-runtime
-  esbuild: {
-    jsx: "transform",
-    jsxFactory: "React.createElement",
-    jsxFragment: "React.Fragment",
-  },
   build: {
     target: "esnext",
     minify: false,
