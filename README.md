@@ -2,7 +2,8 @@
 
 A [Freelens](https://freelens.app) extension that colorizes pod logs in the built-in log viewer:
 JSON, logfmt, klog, levels, stack traces. It configures nothing and calls nowhere — it only adds
-ANSI codes to text the viewer already knows how to show in color.
+ANSI codes to text the viewer already knows how to show in color. On request it also installs
+`lc`, a terminal command that colors your own logs the same way.
 
 > На русском — [README.ru.md](README.ru.md).
 
@@ -27,8 +28,8 @@ running, and follow these steps:
 
    | Host | URL |
    |---|---|
-   | Freelens 2.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.3/freelens-logscolor-2.0.3.tgz` |
-   | Freelens 1.x, Lens 6.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.3/freelens-logscolor-1.0.3.tgz` |
+   | Freelens 2.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v2.1.0/freelens-logscolor-2.1.0.tgz` |
+   | Freelens 1.x, Lens 6.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v1.1.0/freelens-logscolor-1.1.0.tgz` |
 
 3. Click on the **Install** button
 4. Make sure the extension is enabled
@@ -52,6 +53,29 @@ are added — the text of the line is never changed.
 
 The full table of what gets colored, and the one setting there is, are in the README of your
 branch.
+
+## 🖥️ The `lc` command: your own logs in a terminal
+
+```sh
+kubectl logs -f my-pod | lc
+tail -f app.log | lc | less -R
+```
+
+The same coloring, outside the app. Nothing is installed together with the extension: you
+install `lc` yourself and remove it the same way.
+
+| Host | Where |
+|---|---|
+| Freelens 1.x, Lens 6.x | **Install lc** / **Remove lc** buttons in **Preferences → Extensions → freelens-logscolor**, or the command palette |
+| Freelens 2.x | the command palette (Cmd+Shift+P): *Logs color: install the lc terminal command* / *… remove …*; the preferences page shows the state |
+
+Freelens 2.x has no buttons because it does not share React with extensions, and the extension
+works on a vanilla build without one.
+
+`lc` needs [Node.js](https://nodejs.org) on PATH: without `node` it is not installed. It goes
+into the first writable directory on PATH out of `~/.local/bin`, `~/bin`, `/opt/homebrew/bin`,
+`/usr/local/bin`, is removed together with the extension, and never touches an `lc` that is not
+its own. Not available on Windows.
 
 ## 📦 Where the code is
 

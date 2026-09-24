@@ -2,7 +2,8 @@
 
 Раскраска логов в штатном просмотрщике [Freelens](https://freelens.app): JSON, logfmt, klog,
 уровни, стектрейсы. Ничего не настраивает и никуда не ходит — только добавляет ANSI-коды в
-текст, который вьювер и так умеет показывать цветом.
+текст, который вьювер и так умеет показывать цветом. По желанию ставит ещё команду `lc`, которая
+так же красит ваши логи в терминале.
 
 > In English — [README.md](README.md).
 
@@ -35,6 +36,34 @@ Freelens 1.x показывает логи через `ansi_up` 5, 2.x — че�
 и стектрейсы остались бы обычным цветом темы. Всё остальное — базовые цвета 30–37 и 90–97 —
 одинаково понимают обе.
 
+Второе различие — как ставится команда `lc`. Freelens 1.x и Lens 6.x отдают расширениям свой
+React, и в `v1` на странице настроек есть кнопки. Freelens 2.x React не отдаёт, поэтому в `v2`
+React-компонентов нет вовсе: страница настроек — простой текст, а установка и удаление — из
+палитры команд.
+
+## Команда `lc` — свои логи в терминале
+
+```sh
+kubectl logs -f my-pod | lc
+stern web | lc
+tail -f app.log | lc | less -R
+```
+
+Та же раскраска, но вне приложения. Вместе с расширением в систему ничего не ставится: `lc`
+ставят руками и так же убирают.
+
+| Хост | Где |
+|---|---|
+| Freelens 1.x, Lens 6.x | кнопки **Install lc** / **Remove lc** в **Preferences → Extensions → freelens-logscolor** или палитра команд |
+| Freelens 2.x | палитра команд (Cmd+Shift+P): *Logs color: install the lc terminal command* / *… remove …*; на странице настроек — состояние |
+
+Кнопок во Freelens 2.x нет, потому что он не отдаёт расширениям React, а расширение ставится на
+ванильную сборку без патчей.
+
+`lc` нужен [Node.js](https://nodejs.org) в PATH: без `node` команда не ставится. Кладётся в
+первый доступный на запись каталог из PATH по списку `~/.local/bin`, `~/bin`, `/opt/homebrew/bin`,
+`/usr/local/bin`, уходит вместе с расширением и чужой `lc` не трогает. На Windows её нет.
+
 ## Установка
 
 В npm пакет не публикуется: ставится из `.tgz`, приложенного к
@@ -43,8 +72,8 @@ Freelens 1.x показывает логи через `ansi_up` 5, 2.x — че�
 
 | Хост | Ссылка |
 |---|---|
-| Freelens 2.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.3/freelens-logscolor-2.0.3.tgz` |
-| Freelens 1.x, Lens 6.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v1.0.3/freelens-logscolor-1.0.3.tgz` |
+| Freelens 2.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v2.1.0/freelens-logscolor-2.1.0.tgz` |
+| Freelens 1.x, Lens 6.x | `https://github.com/Dees7/freelens-logscolor/releases/download/v1.1.0/freelens-logscolor-1.1.0.tgz` |
 
 Ветка при установке нигде не называется — её выбирает номер релиза. Подробности, настройки,
 что именно красится и сборка из исходников — в README своей ветки.
