@@ -52,7 +52,7 @@ kubectl logs -f deploy/web --all-pods --all-containers | lc
 
 Префикс `[pod/…/…]` от `--all-pods`, `--all-containers` и `-l` приглушается, строка за ним
 красится как обычно. В пункте меню [crt-lens](https://github.com/Dees7/crt-lens)
-`… logs {{kind}}/{{name}} --all-pods --all-containers -f | lc | grep --line-buffered -i error`
+`… logs {{kind}}/{{name}} --all-pods --all-containers -f | grep --line-buffered -i error | lc`
 даёт цветной **View all logs** по всему ворклоаду; полный пример — в README своей ветки.
 
 Та же раскраска, но вне приложения. Вместе с расширением в систему ничего не ставится: `lc`

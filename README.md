@@ -64,7 +64,7 @@ kubectl logs -f deploy/web --all-pods --all-containers | lc
 
 The `[pod/…/…]` prefix of `--all-pods`, `--all-containers` and `-l` is dimmed, and the line behind
 it is colored as usual. Put into a [crt-lens](https://github.com/Dees7/crt-lens) menu item,
-`… logs {{kind}}/{{name}} --all-pods --all-containers -f | lc | grep --line-buffered -i error` gives
+`… logs {{kind}}/{{name}} --all-pods --all-containers -f | grep --line-buffered -i error | lc` gives
 a colored **View all logs** of a whole workload; the full example is in the README of your branch.
 
 The same coloring, outside the app. Nothing is installed together with the extension: you
