@@ -99,7 +99,7 @@ Freelens:
 2. Вставить ссылку на артефакт релиза под Freelens 2.x:
 
    ```
-   https://github.com/Dees7/freelens-logscolor/releases/download/v2.1.0/freelens-logscolor-2.1.0.tgz
+   https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.4/freelens-logscolor-2.0.4.tgz
    ```
 
 3. Нажать **Install**
@@ -145,6 +145,45 @@ kubectl logs -f deploy/web --all-pods --all-containers | lc
 Префикс приглушается, а JSON, logfmt или klog за ним красятся как обычно. Префикс узнаётся
 только с двумя слешами, так что `[INFO]`, `[engine]` и прочие скобки в начале самого сообщения
 за него не принимаются. Во вьювере приложения такого префикса не бывает, это для `lc`.
+
+### В crt-lens: логи всего ворклоада
+
+[crt-lens](https://github.com/Dees7/crt-lens) добавляет свои команды в меню объектов Freelens.
+Если поставить в трубу `lc`, пункт **View all logs** у Deployment, StatefulSet, DaemonSet или
+Job показывает в терминале логи всех подов и контейнеров — в цвете и с приглушённым префиксом
+`[pod/…/…]`:
+
+```yaml
+- id: wl-logs-all
+  name: View all logs
+  type: local
+  icon: article
+  scopes:
+    - Deployment
+    - StatefulSet
+    - ReplicaSet
+    - DaemonSet
+    - Job
+  title: "logs {{name}}"
+  input:
+    label: "Фильтр дописывается в конец команды"
+    default: "| lc | grep -C 5 --line-buffered -i error"
+  cmd: >-
+    {{kubectl}} --kubeconfig "{{kubeconfig}}" --context {{context}}
+    -n {{namespace}} logs {{kind}}/{{name}}
+    --all-pods --all-containers --ignore-errors
+    --tail=200 --max-log-requests=100 -f {{userinput}}
+```
+
+В поле ввода — хвост трубы, так что фильтр можно поменять перед запуском.
+
+- `lc` ставьте **до** `grep`, а не после. `grep --color=always` оборачивает совпадение в
+  escape-коды, и JSON-строка с ними внутри перестаёт быть JSON: `lc` покрасил бы в ней только
+  префикс.
+- После `lc` `grep` ищет по уже раскрашенному тексту. Слово находится как обычно, а шаблон
+  через границу цвета — нет: в `level=error` между `level`, `=` и `error` стоят escape-коды.
+- `--line-buffered` у `grep` оставляйте, иначе `-f` застрянет в его буфере. Сам `lc` отдаёт
+  каждую строку сразу, как она пришла.
 
 Установка расширения в систему ничего не кладёт. Команду ставят и убирают из палитры команд
 (Cmd+Shift+P): *Logs color: install the lc terminal command* и *Logs color: remove the lc

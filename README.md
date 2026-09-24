@@ -28,7 +28,7 @@ running, and follow these steps:
 2. Paste the release asset URL for Freelens 2.x:
 
    ```
-   https://github.com/Dees7/freelens-logscolor/releases/download/v2.1.0/freelens-logscolor-2.1.0.tgz
+   https://github.com/Dees7/freelens-logscolor/releases/download/v2.0.4/freelens-logscolor-2.0.4.tgz
    ```
 
 3. Click on the **Install** button
@@ -131,6 +131,44 @@ Lines from several pods and containers come with a `[pod/<pod>/<container>] ` pr
 The prefix is dimmed, and the JSON, logfmt or klog behind it is colored as usual. Only a prefix
 with two slashes counts, so `[INFO]`, `[engine]` and other brackets at the start of a message are
 not mistaken for it. The log viewer in the app never shows such a prefix, so this is for `lc`.
+
+### In crt-lens: logs of a whole workload
+
+[crt-lens](https://github.com/Dees7/crt-lens) puts your own commands into object menus in
+Freelens. With `lc` in the pipe, a **View all logs** item on a Deployment, StatefulSet,
+DaemonSet or Job streams the logs of every pod and container in the terminal, colored and with
+the `[pod/…/…]` prefix dimmed:
+
+```yaml
+- id: wl-logs-all
+  name: View all logs
+  type: local
+  icon: article
+  scopes:
+    - Deployment
+    - StatefulSet
+    - ReplicaSet
+    - DaemonSet
+    - Job
+  title: "logs {{name}}"
+  input:
+    label: "The filter is appended to the command"
+    default: "| lc | grep -C 5 --line-buffered -i error"
+  cmd: >-
+    {{kubectl}} --kubeconfig "{{kubeconfig}}" --context {{context}}
+    -n {{namespace}} logs {{kind}}/{{name}}
+    --all-pods --all-containers --ignore-errors
+    --tail=200 --max-log-requests=100 -f {{userinput}}
+```
+
+The input field holds the tail of the pipe, so the filter can be changed before the run.
+
+- Put `lc` **before** `grep`, not after it. `grep --color=always` wraps the match in escape codes,
+  and a JSON line with them inside is no longer JSON: `lc` would color only its prefix.
+- After `lc`, `grep` searches the colored text. A word is found as usual, but a pattern across a
+  color boundary is not: `level=error` has escape codes between `level`, `=` and `error`.
+- Keep `--line-buffered` on `grep`, or `-f` stalls in its buffer. `lc` itself writes every line
+  as soon as it arrives.
 
 Installing the extension puts nothing into your system. The command is installed and removed
 from the command palette (Cmd+Shift+P): *Logs color: install the lc terminal command* and *Logs
